@@ -44,11 +44,11 @@ export enum SlotStatus {
  * Statuts des rendez-vous
  */
 export enum AppointmentStatus {
-  PENDING = 'PENDING',       // En attente de confirmation
+  // PENDING = 'PENDING',       // En attente de confirmation
   CONFIRMED = 'CONFIRMED',   // Confirmé
   CANCELLED = 'CANCELLED',   // Annulé
   COMPLETED = 'COMPLETED',   // Terminé
-  NO_SHOW = 'NO_SHOW',       // Client absent
+  // NO_SHOW = 'NO_SHOW',       // Client absent
 }
 
 /**
@@ -322,13 +322,19 @@ export interface DayHours {
   end: string;    // Format HH:mm
 }
 
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  email: true,
+  push: true,
+  sms: false,
+};
+
 /**
  * Préférences de notification
  */
-export interface NotificationPreferences {
-  email: boolean;
-  push: boolean;
-  sms: boolean;
+export class NotificationPreferences {
+  email: boolean = true;
+  push: boolean = true;
+  sms: boolean = false;
 }
 
 // ==========================================

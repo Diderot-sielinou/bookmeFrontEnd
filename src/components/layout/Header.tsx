@@ -1,13 +1,3 @@
-/**
- * Composant Header
- * 
- * En-tête principal de l'application avec :
- * - Logo et navigation principale
- * - Barre de recherche (sur pages publiques)
- * - Notifications
- * - Menu utilisateur
- */
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -37,24 +27,15 @@ import {
   Input,
 } from '@/components/ui';
 
-// ==========================================
-// TYPES
-// ==========================================
-
 interface HeaderProps {
   showSearch?: boolean;
   onMenuClick?: () => void;
 }
 
-// ==========================================
-// COMPOSANT
-// ==========================================
-
 export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { user, profile, isAuthenticated, logout, isClient, isPrestataire, isAdmin } = useAuth();
   const { count: notificationCount, hasUnread } = useNotificationBadge();
-  
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
@@ -79,23 +60,23 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
+        
+        {/* LOGO & MOBILE MENU */}
         <div className="flex items-center gap-4">
           {isAuthenticated && (
             <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
               <Menu className="h-5 w-5" />
             </Button>
           )}
-
           <Link to={ROUTES.HOME} className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500 text-white font-bold">
-              B
-            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500 text-white font-bold">B</div>
             <span className="hidden font-bold text-xl sm:inline-block">
               Book<span className="text-cyan-500">Me</span>
             </span>
           </Link>
         </div>
 
+        {/* SEARCH BAR (DESKTOP) */}
         {showSearch && (
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-8">
             <div className="relative w-full">
@@ -111,6 +92,7 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
           </form>
         )}
 
+        {/* ACTIONS & USER MENU */}
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
@@ -122,7 +104,7 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
               >
                 <Bell className="h-5 w-5" />
                 {hasUnread && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-[10px] text-white font-medium">
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-[10px] text-white">
                     {notificationCount > 9 ? '9+' : notificationCount}
                   </span>
                 )}
@@ -143,48 +125,38 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
                       src={profile && 'avatar' in profile ? profile.avatar : null}
                       firstName={profile && 'firstName' in profile ? profile.firstName : undefined}
                       lastName={profile && 'lastName' in profile ? profile.lastName : undefined}
-                      size="sm"
                     />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end">
                   <DropdownMenuLabel>
                     <p className="text-sm font-medium">{displayName}</p>
-                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate(getDashboardLink())}>
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                    Tableau de bord
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> Tableau de bord
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => navigate(isClient ? ROUTES.CLIENT_APPOINTMENTS : ROUTES.PRESTATAIRE_APPOINTMENTS)}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Mes rendez-vous
+                  <DropdownMenuItem onClick={() => navigate(isClient ? ROUTES.CLIENT_APPOINTMENTS : ROUTES.PRESTATAIRE_APPOINTMENTS)}>
+                    <Calendar className="mr-2 h-4 w-4" /> Mes rendez-vous
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => navigate(isClient ? ROUTES.CLIENT_PROFILE : ROUTES.PRESTATAIRE_PROFILE)}
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    Mon profil
+                  <DropdownMenuItem onClick={() => navigate(isClient ? ROUTES.CLIENT_PROFILE : ROUTES.PRESTATAIRE_PROFILE)}>
+                    <User className="mr-2 h-4 w-4" /> Mon profil
                   </DropdownMenuItem>
                   {isPrestataire && (
                     <DropdownMenuItem onClick={() => navigate(ROUTES.PRESTATAIRE_SETTINGS)}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Paramètres
+                      <Settings className="mr-2 h-4 w-4" /> Paramètres
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-destructive">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Déconnexion
+                  <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" /> Déconnexion
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
               <Button variant="ghost" asChild className="hidden sm:inline-flex">
                 <Link to={ROUTES.SEARCH}>Trouver un prestataire</Link>
               </Button>
@@ -194,27 +166,10 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
               <Button asChild>
                 <Link to={ROUTES.REGISTER}>S'inscrire</Link>
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>
-
-      {showSearch && (
-        <div className="md:hidden border-t px-4 py-2">
-          <form onSubmit={handleSearch}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-full"
-              />
-            </div>
-          </form>
-        </div>
-      )}
     </header>
   );
 }

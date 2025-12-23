@@ -105,34 +105,34 @@ export const completeAppointment = async (id: string): Promise<Appointment> => {
 /**
  * Confirme un rendez-vous (prestataire)
  */
-export const confirmAppointment = async (id: string): Promise<Appointment> => {
-  const response = await api.patch<{ data: Appointment }>(
-    `/appointments/${id}/confirm`
-  );
-  return response.data.data;
-};
+// export const confirmAppointment = async (id: string): Promise<Appointment> => {
+//   const response = await api.patch<{ data: Appointment }>(
+//     `/appointments/${id}/confirm`
+//   );
+//   return response.data.data;
+// };
 
 /**
  * Marque un client comme absent (no-show)
  */
-export const markNoShow = async (id: string): Promise<Appointment> => {
-  const response = await api.patch<{ data: Appointment }>(
-    `/appointments/${id}/no-show`
-  );
-  return response.data.data;
-};
+// export const markNoShow = async (id: string): Promise<Appointment> => {
+//   const response = await api.patch<{ data: Appointment }>(
+//     `/appointments/${id}/no-show`
+//   );
+//   return response.data.data;
+// };
 
 /**
  * Récupère les rendez-vous du prestataire connecté
  */
-export const getPrestataireAppointments = async (
-  filters?: AppointmentFilters
-): Promise<PaginatedResponse<Appointment>> => {
-  const response = await api.get<PaginatedResponse<Appointment>>('/appointments/prestataire', {
-    params: filters,
-  });
-  return response.data;
-};
+// export const getPrestataireAppointments = async (
+//   filters?: AppointmentFilters
+// ): Promise<PaginatedResponse<Appointment>> => {
+//   const response = await api.get<PaginatedResponse<Appointment>>('/appointments/prestataire', {
+//     params: filters,
+//   });
+//   return response.data;
+// };
 
 // ==========================================
 // UTILITAIRES

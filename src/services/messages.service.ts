@@ -1,6 +1,6 @@
 /**
  * Service de messagerie
- * 
+ *
  * Gère toutes les opérations liées à la messagerie :
  * - Envoi et réception de messages
  * - Gestion des conversations
@@ -8,9 +8,14 @@
  * - Signalement
  */
 
-import { api } from '@/lib/api';
-import type { Message, Conversation, PaginatedResponse } from '@/types/entities';
-import type { SendMessageDto, FlagMessageDto } from '@/types/forms';
+import { api } from "@/lib/api";
+import type {
+  Message,
+  Conversation,
+  PaginatedResponse,
+  ApiResponse,
+} from "@/types/entities";
+import type { SendMessageDto, FlagMessageDto } from "@/types/forms";
 
 // ==========================================
 // CONVERSATIONS
@@ -20,18 +25,27 @@ import type { SendMessageDto, FlagMessageDto } from '@/types/forms';
  * Récupère la liste des conversations
  * Chaque conversation est liée à un rendez-vous
  */
-export const getConversations = async (): Promise<Conversation[]> => {
-  const response = await api.get<{ data: Conversation[] }>('/messages/conversations');
+export const getConversations = async (options?: {
+  unreadOnly?: boolean;
+  page?: number;
+  limit?: number;
+}): Promise<Conversation[]> => {
+  const response = await api.get<{ data: Conversation[] }>(
+    "/messages/conversations",
+    {
+      params: options,
+    }
+  );
   return response.data.data;
 };
 
 /**
  * Récupère le nombre total de messages non lus
  */
-export const getUnreadCount = async (): Promise<number> => {
-  const response = await api.get<{ data: { count: number } }>('/messages/unread-count');
-  return response.data.data.count;
-};
+// export const getUnreadCount = async (): Promise<number> => {
+//   const response = await api.get<{ data: { count: number } }>('/messages/unread-count');
+//   return response.data.data.count;
+// };
 
 // ==========================================
 // MESSAGES
@@ -43,11 +57,12 @@ export const getUnreadCount = async (): Promise<number> => {
 export const getMessagesByAppointment = async (
   appointmentId: string,
   options?: {
-    page?: number;
+    cursor?: string;
     limit?: number;
+    sortOrder?: "ASC" | "DESC";
   }
-): Promise<PaginatedResponse<Message>> => {
-  const response = await api.get<PaginatedResponse<Message>>(
+): Promise<ApiResponse<Message[]>> => {
+  const response = await api.get<ApiResponse<Message[]>>(
     `/messages/appointment/${appointmentId}`,
     { params: options }
   );
@@ -56,12 +71,15 @@ export const getMessagesByAppointment = async (
 
 /**
  * Envoie un message
- * 
+ *
  * Le message est associé à un rendez-vous spécifique.
  * Seuls le client et le prestataire du RDV peuvent échanger.
  */
-export const sendMessage = async (data: SendMessageDto): Promise<Message> => {
-  const response = await api.post<{ data: Message }>('/messages', data);
+export const sendMessage = async (data: {
+  appointmentId: string;
+  content: string;
+}): Promise<Message> => {
+  const response = await api.post<{ data: Message }>("/messages", data);
   return response.data.data;
 };
 
@@ -70,6 +88,16 @@ export const sendMessage = async (data: SendMessageDto): Promise<Message> => {
  */
 export const markAsRead = async (appointmentId: string): Promise<void> => {
   await api.patch(`/messages/appointment/${appointmentId}/read`);
+};
+
+/**
+ * Récupère le nombre de messages non lus
+ */
+export const getUnreadCount = async (): Promise<number> => {
+  const response = await api.get<{ data: { unreadCount: number } }>(
+    "/messages/unread-count"
+  );
+  return response.data.data.unreadCount;
 };
 
 // Alias for services index
@@ -82,8 +110,12 @@ export const markMessagesAsRead = markAsRead;
 /**
  * Signale un message inapproprié
  */
-export const flagMessage = async (id: string, data: FlagMessageDto): Promise<void> => {
-  await api.post(`/messages/${id}/flag`, data);
+
+export const flagMessage = async (
+  id: string,
+  reason: string
+): Promise<void> => {
+  await api.post(`/messages/${id}/flag`, { reason });
 };
 
 // ==========================================
@@ -113,7 +145,7 @@ export const addMessageToList = (
   if (messages.some((m) => m.id === newMessage.id)) {
     return messages;
   }
-  
+
   // Ajouter le nouveau message à la fin
   return [
     ...messages,
@@ -139,4 +171,13 @@ export const markMessageAsReadLocal = (
       ? { ...m, read: true, readAt: new Date().toISOString() }
       : m
   );
+};
+
+export const messagesService = {
+  getConversations,
+  getMessagesByAppointment,
+  sendMessage,
+  markAsRead,
+  getUnreadCount,
+  flagMessage,
 };

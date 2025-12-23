@@ -1,9 +1,5 @@
 /**
  * Service des clients
- * 
- * Gère les opérations liées aux profils clients :
- * - Récupération du profil
- * - Mise à jour du profil
  */
 
 import { api } from '@/lib/api';
@@ -18,11 +14,11 @@ import type { UpdateClientDto } from '@/types/forms';
  * Récupère le profil du client connecté
  */
 export const getMyClientProfile = async (): Promise<Client> => {
-  const response = await api.get<{ data: Client }>('/users/profile/client');
+  const response = await api.get<{ data: Client }>('/users/clients/me');
   return response.data.data;
 };
 
-// Alias for services index
+// Alias
 export const getClientProfile = getMyClientProfile;
 
 /**
@@ -32,13 +28,13 @@ export const updateMyClientProfile = async (
   data: UpdateClientDto
 ): Promise<Client> => {
   const response = await api.patch<{ data: Client }>(
-    '/users/profile/client',
+    '/users/clients/me',
     data
   );
   return response.data.data;
 };
 
-// Alias for services index
+// Alias
 export const updateClientProfileService = updateMyClientProfile;
 
 /**

@@ -1,73 +1,55 @@
-/**
- * Composant EmptyState
- * 
- * Affiche un état vide élégant avec illustration et CTA.
- * Utilisé quand il n'y a pas de données à afficher.
- */
-
+import { isValidElement } from 'react'; // Importer ceci
 import type { LucideIcon } from 'lucide-react';
 import { Inbox } from 'lucide-react';
-
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
 
-// ==========================================
-// TYPES
-// ==========================================
-
 interface EmptyStateProps {
-  /** Icône à afficher */
-  icon?: LucideIcon;
-  /** Titre */
+  icon?: LucideIcon | React.ReactNode;
   title: string;
-  /** Description */
   description?: string;
-  /** Texte du bouton d'action */
   actionLabel?: string;
-  /** Callback du bouton d'action */
   onAction?: () => void;
-  /** Classes additionnelles */
+  action?: React.ReactNode;
   className?: string;
 }
 
-// ==========================================
-// COMPOSANT
-// ==========================================
-
 export function EmptyState({
-  icon: Icon = Inbox,
+  icon: IconInput = Inbox, // Renommé pour clarté
   title,
   description,
   actionLabel,
   onAction,
+  action,
   className,
 }: EmptyStateProps) {
+  
+  // Rendu de l'icône de manière sécurisée
+  const renderIcon = () => {
+    // Si c'est déjà un élément JSX (ex: <span />), on le rend tel quel
+    if (isValidElement(IconInput)) {
+      return IconInput;
+    }
+    
+    // Sinon, on considère que c'est un composant (Icone Lucide)
+    const IconComponent = IconInput as React.ElementType;
+    return <IconComponent className="h-10 w-10 text-cyan-600" />;
+  };
+
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center py-12 px-4 text-center',
-        className
-      )}
-    >
-      {/* Icône avec cercle décoratif */}
+    <div className={cn('flex flex-col items-center justify-center py-12 px-4 text-center', className)}>
       <div className="relative mb-6">
         <div className="absolute inset-0 bg-cyan-100 rounded-full blur-xl opacity-50" />
         <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-cyan-100">
-          <Icon className="h-10 w-10 text-cyan-600" />
+          {renderIcon()}
         </div>
       </div>
 
-      {/* Texte */}
       <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-      
-      {description && (
-        <p className="text-sm text-muted-foreground max-w-sm mb-6">
-          {description}
-        </p>
-      )}
+      {description && <p className="text-sm text-muted-foreground max-w-sm mb-6">{description}</p>}
 
-      {/* Action */}
-      {actionLabel && onAction && (
+      {action}
+      {!action && actionLabel && onAction && (
         <Button onClick={onAction}>{actionLabel}</Button>
       )}
     </div>

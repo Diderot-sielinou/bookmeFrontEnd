@@ -48,10 +48,10 @@ export {
   getAppointmentById,
   bookAppointment,
   cancelAppointment,
-  confirmAppointment,
+  // confirmAppointment,
   completeAppointment,
-  markNoShow,
-  getPrestataireAppointments,
+  // markNoShow,
+  // getPrestataireAppointments,
 } from './appointments.service';
 
 // Slots service
@@ -128,10 +128,10 @@ export const appointmentsService = {
   getAppointmentById: appointmentsFns.getAppointmentById,
   bookAppointment: appointmentsFns.bookAppointment,
   cancelAppointment: appointmentsFns.cancelAppointment,
-  confirmAppointment: appointmentsFns.confirmAppointment,
+  // confirmAppointment: appointmentsFns.confirmAppointment,
   completeAppointment: appointmentsFns.completeAppointment,
-  markNoShow: appointmentsFns.markNoShow,
-  getPrestataireAppointments: appointmentsFns.getPrestataireAppointments,
+  // markNoShow: appointmentsFns.markNoShow,
+  // getPrestataireAppointments: appointmentsFns.getPrestataireAppointments,
 };
 
 export const slotsService = {
@@ -159,6 +159,7 @@ export const messagesService = {
   getMessagesByAppointment: messagesFns.getMessagesByAppointment,
   sendMessage: messagesFns.sendMessage,
   markAsRead: messagesFns.markMessagesAsRead,
+  getUnreadCount: messagesFns.getUnreadCount,
 };
 
 export const notificationsService = {

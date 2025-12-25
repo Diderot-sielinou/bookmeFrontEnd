@@ -1,11 +1,5 @@
 /**
- * Service des rendez-vous
- * 
- * Gère toutes les opérations liées aux rendez-vous :
- * - Réservation / Annulation
- * - Liste des rendez-vous (client et prestataire)
- * - Détails d'un rendez-vous
- * - Marquage comme terminé
+ * Service des rendez-vous - ALIGNÉ AVEC BACKEND
  */
 
 import { api } from '@/lib/api';
@@ -25,7 +19,6 @@ import type {
 
 /**
  * Récupère la liste des rendez-vous de l'utilisateur connecté
- * Filtrable par statut, date, etc.
  */
 export const getMyAppointments = async (
   filters?: AppointmentFilters
@@ -33,14 +26,19 @@ export const getMyAppointments = async (
   const response = await api.get<PaginatedResponse<Appointment>>('/appointments/my', {
     params: filters,
   });
+  // ✅ Le backend retourne déjà { success: true, data: [...], meta: {...} }
+  // L'intercepteur transforme en { data: [...], meta: {...} }
   return response.data;
 };
 
 /**
  * Récupère les rendez-vous du jour (pour prestataires)
+ * ✅ CORRIGÉ : Le backend retourne un tableau enveloppé
  */
 export const getTodayAppointments = async (): Promise<Appointment[]> => {
   const response = await api.get<{ data: Appointment[] }>('/appointments/today');
+  // ✅ Le backend/intercepteur enveloppe dans { success: true, data: [...] }
+  // Axios ajoute .data, donc response.data = { data: [...] }
   return response.data.data;
 };
 
@@ -58,23 +56,15 @@ export const getAppointmentById = async (id: string): Promise<Appointment> => {
 
 /**
  * Réserve un rendez-vous
- * 
- * Le système vérifie automatiquement :
- * - Disponibilité du créneau
- * - Respect du préavis minimum
- * - Statut actif du prestataire
  */
 export const bookAppointment = async (data: BookAppointmentDto): Promise<Appointment> => {
+  // console.log(`BookAppointmentDto ${JSON.stringify(data)}`)
   const response = await api.post<{ data: Appointment }>('/appointments/book', data);
   return response.data.data;
 };
 
 /**
  * Annule un rendez-vous
- * 
- * Le système vérifie :
- * - Que l'utilisateur est autorisé (client ou prestataire concerné)
- * - Respect du délai minimum d'annulation
  */
 export const cancelAppointment = async (
   id: string,
@@ -93,7 +83,6 @@ export const cancelAppointment = async (
 
 /**
  * Marque un rendez-vous comme terminé
- * Disponible uniquement pour les prestataires
  */
 export const completeAppointment = async (id: string): Promise<Appointment> => {
   const response = await api.patch<{ data: Appointment }>(
@@ -102,45 +91,12 @@ export const completeAppointment = async (id: string): Promise<Appointment> => {
   return response.data.data;
 };
 
-/**
- * Confirme un rendez-vous (prestataire)
- */
-// export const confirmAppointment = async (id: string): Promise<Appointment> => {
-//   const response = await api.patch<{ data: Appointment }>(
-//     `/appointments/${id}/confirm`
-//   );
-//   return response.data.data;
-// };
-
-/**
- * Marque un client comme absent (no-show)
- */
-// export const markNoShow = async (id: string): Promise<Appointment> => {
-//   const response = await api.patch<{ data: Appointment }>(
-//     `/appointments/${id}/no-show`
-//   );
-//   return response.data.data;
-// };
-
-/**
- * Récupère les rendez-vous du prestataire connecté
- */
-// export const getPrestataireAppointments = async (
-//   filters?: AppointmentFilters
-// ): Promise<PaginatedResponse<Appointment>> => {
-//   const response = await api.get<PaginatedResponse<Appointment>>('/appointments/prestataire', {
-//     params: filters,
-//   });
-//   return response.data;
-// };
-
 // ==========================================
 // UTILITAIRES
 // ==========================================
 
 /**
  * Vérifie si un rendez-vous peut être annulé
- * (basé sur le délai minimum du prestataire)
  */
 export const canCancelAppointment = (
   appointment: Appointment,
@@ -159,7 +115,7 @@ export const canCancelAppointment = (
 };
 
 /**
- * Vérifie si un avis peut être laissé pour un rendez-vous
+ * Vérifie si un avis peut être laissé
  */
 export const canLeaveReview = (appointment: Appointment): boolean => {
   return appointment.status === 'COMPLETED' && !appointment.review;

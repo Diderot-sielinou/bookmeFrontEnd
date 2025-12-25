@@ -1,176 +1,165 @@
 /**
  * MessagesPage (Prestataire)
- * 
- * Page de messagerie pour les prestataires.
- * Permet de communiquer avec les clients.
+ * CORRIGÉ - Validation des dates
  */
 
-import { useState, useEffect, useRef } from 'react';
-import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { format, isToday, isYesterday, isValid, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
 import {
   MessageSquare,
   Search,
   Send,
   User,
-  Clock,
   Check,
   CheckCheck,
   Loader2,
-  Phone,
-  Video,
   MoreVertical,
   Archive,
-  Trash2,
-  Bell,
   BellOff,
-} from 'lucide-react';
+  RefreshCw,
+  Flag,
+} from "lucide-react";
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { useAuthStore } from '@/stores/authStore';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { showSuccess, showError } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+import { useAuth } from "@/hooks/useAuth";
+import {
+  useMessageSocket,
+  useMessageNotifications,
+  type SocketMessage,
+} from "@/hooks/useSocket";
+import {
+  messagesService,
+  type Conversation,
+} from "@/services/messages.service";
+import type { Message } from "@/types";
 
 // ==========================================
-// TYPES
+// HELPERS - avec validation de date
 // ==========================================
 
-interface Conversation {
-  id: string;
-  client: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    avatar?: string;
-  };
-  lastMessage: {
-    content: string;
-    createdAt: string;
-    isFromMe: boolean;
-    read: boolean;
-  };
-  unreadCount: number;
-  appointmentInfo?: {
-    serviceName: string;
-    date: string;
-  };
+/**
+ * Parse une date de manière sécurisée
+ */
+function safeParseDate(
+  dateValue: string | Date | null | undefined
+): Date | null {
+  if (!dateValue) return null;
+
+  try {
+    if (dateValue instanceof Date) {
+      return isValid(dateValue) ? dateValue : null;
+    }
+
+    if (typeof dateValue === "string") {
+      const parsed = parseISO(dateValue);
+      if (isValid(parsed)) return parsed;
+
+      const fallback = new Date(dateValue);
+      if (isValid(fallback)) return fallback;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-interface Message {
-  id: string;
-  content: string;
-  createdAt: string;
-  senderId: string;
-  read: boolean;
+function formatMessageTime(
+  dateValue: string | Date | null | undefined
+): string {
+  const date = safeParseDate(dateValue);
+  if (!date) return "";
+
+  try {
+    if (isToday(date)) {
+      return format(date, "HH:mm");
+    }
+    if (isYesterday(date)) {
+      return "Hier";
+    }
+    return format(date, "d MMM", { locale: fr });
+  } catch {
+    return "";
+  }
 }
 
-// ==========================================
-// MOCK DATA
-// ==========================================
+function formatMessageDate(
+  dateValue: string | Date | null | undefined
+): string {
+  const date = safeParseDate(dateValue);
+  if (!date) return "";
 
-const mockConversations: Conversation[] = [
-  {
-    id: '1',
-    client: { id: '1', firstName: 'Sophie', lastName: 'Martin' },
-    lastMessage: {
-      content: 'Parfait, à demain alors !',
-      createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-      isFromMe: false,
-      read: false,
-    },
-    unreadCount: 2,
-    appointmentInfo: { serviceName: 'Coupe femme', date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() },
-  },
-  {
-    id: '2',
-    client: { id: '2', firstName: 'Pierre', lastName: 'Durand' },
-    lastMessage: {
-      content: 'D\'accord, je vous confirme le créneau',
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      isFromMe: true,
-      read: true,
-    },
-    unreadCount: 0,
-  },
-  {
-    id: '3',
-    client: { id: '3', firstName: 'Julie', lastName: 'Petit' },
-    lastMessage: {
-      content: 'Merci beaucoup pour la coupe, je suis ravie !',
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      isFromMe: false,
-      read: true,
-    },
-    unreadCount: 0,
-  },
-  {
-    id: '4',
-    client: { id: '4', firstName: 'Marc', lastName: 'Bernard' },
-    lastMessage: {
-      content: 'Est-ce que vous auriez un créneau cette semaine ?',
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      isFromMe: false,
-      read: true,
-    },
-    unreadCount: 0,
-  },
-];
-
-const mockMessages: Record<string, Message[]> = {
-  '1': [
-    { id: '1', content: 'Bonjour, j\'aimerais confirmer mon rendez-vous pour demain', createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), senderId: '1', read: true },
-    { id: '2', content: 'Bonjour Sophie ! Oui, votre rendez-vous est bien confirmé pour demain à 14h.', createdAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(), senderId: 'me', read: true },
-    { id: '3', content: 'Super merci ! J\'aurais aussi une question sur la coloration', createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), senderId: '1', read: true },
-    { id: '4', content: 'Bien sûr, je vous écoute !', createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(), senderId: 'me', read: true },
-    { id: '5', content: 'Parfait, à demain alors !', createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(), senderId: '1', read: false },
-  ],
-  '2': [
-    { id: '1', content: 'Bonjour, est-ce que vous avez des disponibilités cette semaine ?', createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), senderId: '2', read: true },
-    { id: '2', content: 'Bonjour Pierre ! Oui, j\'ai un créneau mercredi à 10h ou jeudi à 15h.', createdAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString(), senderId: 'me', read: true },
-    { id: '3', content: 'Jeudi 15h me conviendrait parfaitement', createdAt: new Date(Date.now() - 2.2 * 60 * 60 * 1000).toISOString(), senderId: '2', read: true },
-    { id: '4', content: 'D\'accord, je vous confirme le créneau', createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), senderId: 'me', read: true },
-  ],
-};
-
-// ==========================================
-// HELPERS
-// ==========================================
-
-const formatMessageTime = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  if (isToday(date)) {
-    return format(date, 'HH:mm');
+  try {
+    if (isToday(date)) {
+      return "Aujourd'hui";
+    }
+    if (isYesterday(date)) {
+      return "Hier";
+    }
+    return format(date, "EEEE d MMMM", { locale: fr });
+  } catch {
+    return "";
   }
-  if (isYesterday(date)) {
-    return 'Hier';
-  }
-  return format(date, 'd MMM', { locale: fr });
-};
+}
 
-const formatMessageDate = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  if (isToday(date)) {
-    return "Aujourd'hui";
+function formatBubbleTime(dateValue: string | Date | null | undefined): string {
+  const date = safeParseDate(dateValue);
+  if (!date) return "";
+
+  try {
+    return format(date, "HH:mm");
+  } catch {
+    return "";
   }
-  if (isYesterday(date)) {
-    return 'Hier';
+}
+
+/**
+ * Normalise une date en string ISO
+ */
+function normalizeDateToISO(
+  dateValue: string | Date | null | undefined
+): string {
+  if (!dateValue) return new Date().toISOString();
+
+  if (typeof dateValue === "string") {
+    return dateValue;
   }
-  return format(date, 'EEEE d MMMM', { locale: fr });
-};
+
+  if (dateValue instanceof Date && isValid(dateValue)) {
+    return dateValue.toISOString();
+  }
+
+  return new Date().toISOString();
+}
 
 // ==========================================
 // CONVERSATION LIST ITEM
@@ -179,26 +168,34 @@ const formatMessageDate = (dateStr: string): string => {
 interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
+  currentUserId: string;
   onClick: () => void;
 }
 
-function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
-  const clientName = `${conversation.client.firstName} ${conversation.client.lastName}`;
-  const initials = `${conversation.client.firstName[0]}${conversation.client.lastName[0]}`;
+function ConversationItem({
+  conversation,
+  isActive,
+  currentUserId,
+  onClick,
+}: ConversationItemProps) {
+  const client = conversation.appointment.client;
+  const isFromMe = conversation.lastMessage?.senderId === currentUserId;
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        'w-full p-3 flex items-start gap-3 hover:bg-muted/50 transition-colors text-left',
-        isActive && 'bg-muted'
+        "w-full p-3 flex items-start gap-3 hover:bg-muted/50 transition-colors text-left",
+        isActive && "bg-muted"
       )}
     >
       <div className="relative">
-        <Avatar>
-          <AvatarImage src={conversation.client.avatar} />
-          <AvatarFallback>{initials}</AvatarFallback>
-        </Avatar>
+        <Avatar
+          src={client?.avatar}
+          firstName={client?.firstName}
+          lastName={client?.lastName}
+          size="md"
+        />
         {conversation.unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
             {conversation.unreadCount}
@@ -208,29 +205,42 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <span className={cn('font-medium truncate', conversation.unreadCount > 0 && 'font-semibold')}>
-            {clientName}
+          <span
+            className={cn(
+              "font-medium truncate",
+              conversation.unreadCount > 0 && "font-semibold"
+            )}
+          >
+            {client?.firstName} {client?.lastName}
           </span>
-          <span className="text-xs text-muted-foreground shrink-0">
-            {formatMessageTime(conversation.lastMessage.createdAt)}
-          </span>
+          {conversation.lastMessage?.createdAt && (
+            <span className="text-xs text-muted-foreground shrink-0">
+              {formatMessageTime(conversation.lastMessage.createdAt)}
+            </span>
+          )}
         </div>
-        
-        {conversation.appointmentInfo && (
+
+        {conversation.appointment.service && (
           <Badge variant="secondary" className="text-xs mt-1">
-            📅 {conversation.appointmentInfo.serviceName}
+            📅 {conversation.appointment.service.name}
           </Badge>
         )}
-        
-        <p className={cn(
-          'text-sm truncate mt-1',
-          conversation.unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'
-        )}>
-          {conversation.lastMessage.isFromMe && (
-            <span className="text-muted-foreground">Vous: </span>
-          )}
-          {conversation.lastMessage.content}
-        </p>
+
+        {conversation.lastMessage && (
+          <p
+            className={cn(
+              "text-sm truncate mt-1",
+              conversation.unreadCount > 0
+                ? "text-foreground font-medium"
+                : "text-muted-foreground"
+            )}
+          >
+            {isFromMe && (
+              <span className="text-muted-foreground">Vous: </span>
+            )}
+            {conversation.lastMessage.content}
+          </p>
+        )}
       </div>
     </button>
   );
@@ -245,44 +255,66 @@ interface MessageBubbleProps {
   isFromMe: boolean;
   showDate: boolean;
   dateLabel: string;
+  onFlag?: (message: Message) => void;
 }
 
-function MessageBubble({ message, isFromMe, showDate, dateLabel }: MessageBubbleProps) {
+function MessageBubble({
+  message,
+  isFromMe,
+  showDate,
+  dateLabel,
+  onFlag,
+}: MessageBubbleProps) {
   return (
     <>
-      {showDate && (
+      {showDate && dateLabel && (
         <div className="flex justify-center my-4">
           <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
             {dateLabel}
           </span>
         </div>
       )}
-      <div className={cn('flex', isFromMe ? 'justify-end' : 'justify-start')}>
+      <div
+        className={cn("flex group", isFromMe ? "justify-end" : "justify-start")}
+      >
         <div
           className={cn(
-            'max-w-[70%] rounded-2xl px-4 py-2',
+            "max-w-[70%] rounded-2xl px-4 py-2 relative",
             isFromMe
-              ? 'bg-primary text-primary-foreground rounded-br-md'
-              : 'bg-muted rounded-bl-md'
+              ? "bg-primary text-primary-foreground rounded-br-md"
+              : "bg-muted rounded-bl-md"
           )}
         >
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-          <div className={cn(
-            'flex items-center justify-end gap-1 mt-1',
-            isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
-          )}>
+          <div
+            className={cn(
+              "flex items-center justify-end gap-1 mt-1",
+              isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+            )}
+          >
             <span className="text-xs">
-              {format(new Date(message.createdAt), 'HH:mm')}
+              {formatBubbleTime(message.createdAt)}
             </span>
-            {isFromMe && (
-              message.read ? (
+            {isFromMe &&
+              (message.read ? (
                 <CheckCheck className="h-3 w-3" />
               ) : (
                 <Check className="h-3 w-3" />
-              )
-            )}
+              ))}
           </div>
         </div>
+
+        {/* Flag button */}
+        {!isFromMe && onFlag && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+            onClick={() => onFlag(message)}
+          >
+            <Flag className="h-3 w-3" />
+          </Button>
+        )}
       </div>
     </>
   );
@@ -293,69 +325,253 @@ function MessageBubble({ message, isFromMe, showDate, dateLabel }: MessageBubble
 // ==========================================
 
 export default function MessagesPage() {
-  const { user } = useAuthStore();
-  const [conversations] = useState<Conversation[]>(mockConversations);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const { user } = useAuth();
+  const currentUserId = user?.id || "";
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] =
+    useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Flag dialog
+  const [flagDialogOpen, setFlagDialogOpen] = useState(false);
+  const [messageToFlag, setMessageToFlag] = useState<Message | null>(null);
+  const [flagReason, setFlagReason] = useState("");
+  const [isFlagging, setIsFlagging] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load messages when conversation is selected
-  useEffect(() => {
-    if (selectedConversation) {
-      const conversationMessages = mockMessages[selectedConversation.id] || [];
-      setMessages(conversationMessages);
+  const selectedAppointmentId = selectedConversation?.appointment.id || null;
+
+  // WebSocket handlers
+  const handleNewMessage = useCallback(
+    (socketMessage: SocketMessage) => {
+      const normalizedCreatedAt = normalizeDateToISO(socketMessage.createdAt);
+
+      if (socketMessage.appointmentId === selectedAppointmentId) {
+        const newMsg: Message = {
+          id: socketMessage.id,
+          appointmentId: socketMessage.appointmentId,
+          senderId: socketMessage.senderId,
+          content: socketMessage.content,
+          read: socketMessage.senderId === currentUserId,
+          readAt: null,
+          flagged: false,
+          flagReason: null,
+          createdAt: normalizedCreatedAt,
+        };
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      }
+
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (conv.appointment.id === socketMessage.appointmentId) {
+            const isCurrentConv =
+              socketMessage.appointmentId === selectedAppointmentId;
+            return {
+              ...conv,
+              lastMessage: {
+                id: socketMessage.id,
+                appointmentId: socketMessage.appointmentId,
+                senderId: socketMessage.senderId,
+                content: socketMessage.content,
+                read: isCurrentConv || socketMessage.senderId === currentUserId,
+                readAt: null,
+                flagged: false,
+                flagReason: null,
+                createdAt: normalizedCreatedAt,
+              },
+              unreadCount: isCurrentConv
+                ? 0
+                : conv.unreadCount +
+                  (socketMessage.senderId !== currentUserId ? 1 : 0),
+            };
+          }
+          return conv;
+        })
+      );
+    },
+    [selectedAppointmentId, currentUserId]
+  );
+
+  useMessageSocket(selectedAppointmentId, {
+    onNewMessage: handleNewMessage,
+    onMessagesRead: (event) => {
+      if (event.appointmentId === selectedAppointmentId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.senderId === currentUserId
+              ? { ...m, read: true, readAt: new Date().toISOString() }
+              : m
+          )
+        );
+      }
+    },
+  });
+
+  useMessageNotifications((notification) => {
+    if (notification.appointmentId !== selectedAppointmentId) {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.appointment.id === notification.appointmentId
+            ? { ...conv, unreadCount: conv.unreadCount + 1 }
+            : conv
+        )
+      );
     }
+  });
+
+  // Load conversations
+  const loadConversations = useCallback(async () => {
+    try {
+      const response = await messagesService.getConversations();
+      setConversations(response.data || []);
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+      showError(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Load messages
+  useEffect(() => {
+    if (!selectedConversation) {
+      setMessages([]);
+      return;
+    }
+
+    const loadMessages = async () => {
+      setIsLoadingMessages(true);
+      try {
+        const response = await messagesService.getMessagesByAppointment(
+          selectedConversation.appointment.id
+        );
+        setMessages(response.data || []);
+        await messagesService.markAsRead(selectedConversation.appointment.id);
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.appointment.id === selectedConversation.appointment.id
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          )
+        );
+      } catch (error) {
+        console.error("Failed to load messages:", error);
+        showError(getErrorMessage(error));
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    };
+    loadMessages();
   }, [selectedConversation]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
-    const name = `${conv.client.firstName} ${conv.client.lastName}`.toLowerCase();
+    const client = conv.appointment.client;
+    const name = client
+      ? `${client.firstName} ${client.lastName}`.toLowerCase()
+      : "";
     return name.includes(searchQuery.toLowerCase());
   });
 
-  // Send message
+  // Send message - avec normalisation de la date
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
     setIsSending(true);
-    
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      createdAt: new Date().toISOString(),
-      senderId: 'me',
-      read: false,
-    };
+    try {
+      const sentMessage = await messagesService.sendMessage({
+        appointmentId: selectedConversation.appointment.id,
+        content: newMessage,
+      });
 
-    setMessages((prev) => [...prev, newMsg]);
-    setNewMessage('');
+      // Normaliser createdAt
+      const normalizedMessage: Message = {
+        ...sentMessage,
+        createdAt: normalizeDateToISO(sentMessage.createdAt),
+      };
 
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 500));
-    setIsSending(false);
-    inputRef.current?.focus();
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === normalizedMessage.id)) return prev;
+        return [...prev, normalizedMessage];
+      });
+
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.appointment.id === selectedConversation.appointment.id
+            ? { ...conv, lastMessage: normalizedMessage }
+            : conv
+        )
+      );
+
+      setNewMessage("");
+      inputRef.current?.focus();
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      showError(getErrorMessage(error));
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  // Handle key press
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
-  // Unread count
+  // Flag message
+  const handleFlagMessage = (message: Message) => {
+    setMessageToFlag(message);
+    setFlagReason("");
+    setFlagDialogOpen(true);
+  };
+
+  const submitFlag = async () => {
+    if (!messageToFlag || !flagReason.trim()) return;
+
+    setIsFlagging(true);
+    try {
+      await messagesService.flagMessage(messageToFlag.id, flagReason);
+      showSuccess("Message signalé");
+      setFlagDialogOpen(false);
+      setMessageToFlag(null);
+      setFlagReason("");
+    } catch (error) {
+      showError(getErrorMessage(error));
+    } finally {
+      setIsFlagging(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadConversations();
+    setIsRefreshing(false);
+  };
+
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   if (isLoading) {
@@ -365,14 +581,28 @@ export default function MessagesPage() {
   return (
     <div className="h-[calc(100vh-200px)] flex flex-col">
       {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">Messages</h1>
-        <p className="text-muted-foreground">
-          {totalUnread > 0 
-            ? `${totalUnread} message${totalUnread > 1 ? 's' : ''} non lu${totalUnread > 1 ? 's' : ''}`
-            : 'Communiquez avec vos clients'
-          }
-        </p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Messages</h1>
+          <p className="text-muted-foreground">
+            {totalUnread > 0
+              ? `${totalUnread} message${totalUnread > 1 ? "s" : ""} non lu${
+                  totalUnread > 1 ? "s" : ""
+                }`
+              : "Communiquez avec vos clients"}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw
+            className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")}
+          />
+          Actualiser
+        </Button>
       </div>
 
       {/* Main Content */}
@@ -401,9 +631,13 @@ export default function MessagesPage() {
             ) : (
               filteredConversations.map((conversation) => (
                 <ConversationItem
-                  key={conversation.id}
+                  key={conversation.appointment.id}
                   conversation={conversation}
-                  isActive={selectedConversation?.id === conversation.id}
+                  isActive={
+                    selectedConversation?.appointment.id ===
+                    conversation.appointment.id
+                  }
+                  currentUserId={currentUserId}
                   onClick={() => setSelectedConversation(conversation)}
                 />
               ))
@@ -418,20 +652,22 @@ export default function MessagesPage() {
               {/* Chat Header */}
               <div className="p-4 border-b flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={selectedConversation.client.avatar} />
-                    <AvatarFallback>
-                      {selectedConversation.client.firstName[0]}
-                      {selectedConversation.client.lastName[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  <Avatar
+                    src={selectedConversation.appointment.client?.avatar}
+                    firstName={
+                      selectedConversation.appointment.client?.firstName
+                    }
+                    lastName={selectedConversation.appointment.client?.lastName}
+                    size="md"
+                  />
                   <div>
                     <h3 className="font-semibold">
-                      {selectedConversation.client.firstName} {selectedConversation.client.lastName}
+                      {selectedConversation.appointment.client?.firstName}{" "}
+                      {selectedConversation.appointment.client?.lastName}
                     </h3>
-                    {selectedConversation.appointmentInfo && (
+                    {selectedConversation.appointment.service && (
                       <p className="text-sm text-muted-foreground">
-                        RDV: {selectedConversation.appointmentInfo.serviceName}
+                        RDV: {selectedConversation.appointment.service.name}
                       </p>
                     )}
                   </div>
@@ -457,36 +693,42 @@ export default function MessagesPage() {
                       <Archive className="h-4 w-4 mr-2" />
                       Archiver
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Supprimer
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
               {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-3">
-                  {messages.map((message, index) => {
-                    const isFromMe = message.senderId === 'me';
-                    const currentDate = formatMessageDate(message.createdAt);
-                    const previousDate = index > 0 ? formatMessageDate(messages[index - 1].createdAt) : null;
-                    const showDate = currentDate !== previousDate;
-
-                    return (
-                      <MessageBubble
-                        key={message.id}
-                        message={message}
-                        isFromMe={isFromMe}
-                        showDate={showDate}
-                        dateLabel={currentDate}
-                      />
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
+              {isLoadingMessages ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <LoadingSpinner />
                 </div>
-              </ScrollArea>
+              ) : (
+                <ScrollArea className="flex-1 p-4">
+                  <div className="space-y-3">
+                    {messages.map((message, index) => {
+                      const isFromMe = message.senderId === currentUserId;
+                      const currentDate = formatMessageDate(message.createdAt);
+                      const previousDate =
+                        index > 0
+                          ? formatMessageDate(messages[index - 1].createdAt)
+                          : null;
+                      const showDate = currentDate !== previousDate;
+
+                      return (
+                        <MessageBubble
+                          key={message.id}
+                          message={message}
+                          isFromMe={isFromMe}
+                          showDate={showDate}
+                          dateLabel={currentDate}
+                          onFlag={!isFromMe ? handleFlagMessage : undefined}
+                        />
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </ScrollArea>
+              )}
 
               {/* Input */}
               <div className="p-4 border-t">
@@ -499,7 +741,7 @@ export default function MessagesPage() {
                     onKeyPress={handleKeyPress}
                     disabled={isSending}
                   />
-                  <Button 
+                  <Button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim() || isSending}
                   >
@@ -523,6 +765,56 @@ export default function MessagesPage() {
           )}
         </div>
       </Card>
+
+      {/* Flag Dialog */}
+      <Dialog open={flagDialogOpen} onOpenChange={setFlagDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Signaler le message</DialogTitle>
+            <DialogDescription>
+              Expliquez pourquoi ce message devrait être examiné par notre
+              équipe.
+            </DialogDescription>
+          </DialogHeader>
+
+          {messageToFlag && (
+            <div className="bg-muted/50 p-3 rounded-lg text-sm">
+              <p className="text-muted-foreground">{messageToFlag.content}</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="reason">Raison du signalement</Label>
+            <Textarea
+              id="reason"
+              placeholder="Décrivez le problème..."
+              value={flagReason}
+              onChange={(e) => setFlagReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFlagDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={submitFlag}
+              disabled={!flagReason.trim() || isFlagging}
+              variant="destructive"
+            >
+              {isFlagging ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Envoi...
+                </>
+              ) : (
+                "Signaler"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

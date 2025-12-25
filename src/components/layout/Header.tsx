@@ -15,6 +15,7 @@ import {
 import { ROUTES } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificationBadge } from '@/hooks/useNotifications';
+import { useMessagesBadge } from '@/hooks/useMessages'; // ✅ Nouveau hook
 import {
   Button,
   Avatar,
@@ -35,7 +36,8 @@ interface HeaderProps {
 export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { user, profile, isAuthenticated, logout, isClient, isPrestataire, isAdmin } = useAuth();
-  const { count: notificationCount, hasUnread } = useNotificationBadge();
+  const { count: notificationCount, hasUnread: hasUnreadNotifications } = useNotificationBadge();
+  const { count: messageCount, hasUnread: hasUnreadMessages } = useMessagesBadge(); // ✅ Nouveau
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
@@ -96,6 +98,7 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
+              {/* 🔔 NOTIFICATIONS */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -103,21 +106,29 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
                 onClick={() => navigate(isClient ? ROUTES.CLIENT_NOTIFICATIONS : '/prestataire/notifications')}
               >
                 <Bell className="h-5 w-5" />
-                {hasUnread && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-[10px] text-white">
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                {hasUnreadNotifications && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                    {notificationCount > 99 ? '99+' : notificationCount}
                   </span>
                 )}
               </Button>
 
+              {/* 💬 MESSAGES */}
               <Button
                 variant="ghost"
                 size="icon"
+                className="relative"
                 onClick={() => navigate(isClient ? ROUTES.CLIENT_MESSAGES : ROUTES.PRESTATAIRE_MESSAGES)}
               >
                 <MessageSquare className="h-5 w-5" />
+                {hasUnreadMessages && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-medium text-white">
+                    {messageCount > 99 ? '99+' : messageCount}
+                  </span>
+                )}
               </Button>
 
+              {/* 👤 USER MENU */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">

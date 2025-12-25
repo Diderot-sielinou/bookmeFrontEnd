@@ -466,7 +466,7 @@ export interface DashboardStats {
 export interface AppointmentsByDay {
   date: string;
   count: number;
-  revenue: number;
+  revenue?: number;
 }
 
 /**
@@ -475,7 +475,7 @@ export interface AppointmentsByDay {
 export interface RevenueByMonth {
   month: string;
   revenue: number;
-  count: number;
+  count?: number;
 }
 
 /**

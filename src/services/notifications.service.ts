@@ -44,9 +44,9 @@ export const getUnreadCount = async (): Promise<number> => {
     "/notifications/unread-count"
   );
 
-  // console.log("Réponse Unread Count:", response.data);
+  // console.log("Réponse Unread Count:", JSON.stringify(response.data));
 
-  return response.data?.data?.unreadCount ?? 0;
+  return Number(response.data?.data?.unreadCount)  ?? 0;
 };
 
 // ==========================================

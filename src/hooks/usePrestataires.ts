@@ -24,7 +24,6 @@ export function useSearchPrestataires(filters?: SearchFilters) {
   return useQuery({
     queryKey: queryKeys.prestataires.search(filters as Record<string, unknown>),
     queryFn: () => prestatairesService.searchPrestataires(filters),
-    // Garder en cache plus longtemps pour les recherches
     staleTime: CACHE_TIME.MEDIUM,
   });
 }
@@ -116,6 +115,7 @@ export function useMyServices() {
   return useQuery({
     queryKey: queryKeys.services.lists(),
     queryFn: prestatairesService.getMyServices,
+    staleTime: CACHE_TIME.SHORT, // ✅ Rafraîchir plus souvent
   });
 }
 
@@ -167,7 +167,9 @@ export function useCreateService() {
     mutationFn: (data: CreateServiceDto) =>
       prestatairesService.createService(data),
     onSuccess: () => {
+      // ✅ CORRECTION: Invalider toutes les queries de services
       queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.lists() });
       showSuccess('Service créé avec succès');
     },
     onError: (error) => {
@@ -187,6 +189,7 @@ export function useUpdateService() {
       prestatairesService.updateService(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.lists() });
       showSuccess('Service mis à jour');
     },
     onError: (error) => {
@@ -204,7 +207,22 @@ export function useDeleteService() {
   return useMutation({
     mutationFn: (id: string) => prestatairesService.deleteService(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
+      // ✅ CORRECTION CRITIQUE: Invalider ET refetch immédiatement
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.services.all,
+        refetchType: 'active', // ← Force le refetch des queries actives
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.services.lists(),
+        refetchType: 'active',
+      });
+      
+      // ✅ ALTERNATIVE: Mise à jour optimiste du cache
+      // queryClient.setQueryData(queryKeys.services.lists(), (oldData: any) => {
+      //   if (!oldData) return oldData;
+      //   return oldData.filter((service: any) => service.id !== id);
+      // });
+      
       showSuccess('Service supprimé');
     },
     onError: (error) => {

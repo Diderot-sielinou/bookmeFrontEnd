@@ -104,7 +104,7 @@ export const registerClient = async (
   data: RegisterClientDto
 ): Promise<{ message: string }> => {
   const response = await api.post("/auth/register/client", data);
-  console.log(`/auth/register/client data: ${data}`);
+  // console.log(`/auth/register/client data: ${data}`);
   return response.data;
 };
 
@@ -189,7 +189,7 @@ export const getMe = async (): Promise<MeResponse> => {
   const response = await api.get<any>("/auth/me");
 
   // LOG INTELLIGENT : pour voir la structure réelle
-  console.log("Structure reçue de /me :", response.data);
+  // console.log("Structure reçue de /me :", response.data);
 
   // Adapte ici selon ce que tu vois dans la console
   const data = response.data.data;

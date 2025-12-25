@@ -3,6 +3,7 @@
  * 
  * Liste des avis laissés par le client et possibilité
  * d'en créer de nouveaux pour les rendez-vous terminés.
+ * ALIGNÉ AVEC LE BACKEND
  */
 
 import { useState, useEffect } from 'react';
@@ -15,14 +16,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { formatTime } from '@/lib/utils';
-import { reviewsService, appointmentsService } from '@/services';
+import { useMyReviews, useCreateReview, useUpdateReview } from '@/hooks/useReviews';
+import { useMyAppointments } from '@/hooks/useAppointments';
+import { deleteReview, canEditReview } from '@/services/reviews.service';
 import { AppointmentStatus } from '@/types';
 import type { Review, Appointment } from '@/types';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Avatar,
   Badge,
@@ -40,8 +41,9 @@ import {
   Label,
 } from '@/components/ui';
 import { showSuccess, showError } from '@/components/ui/toast';
-import { Spinner } from '@/components/ui/spinner';
+import { getErrorMessage } from '@/lib/api';
 import { EmptyState } from '@/components/shared';
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { RatingStars } from '@/components/shared/RatingStars';
 
 // ==========================================
@@ -51,6 +53,9 @@ import { RatingStars } from '@/components/shared/RatingStars';
 const reviewSchema = z.object({
   rating: z.number().min(1, 'Veuillez donner une note').max(5),
   comment: z.string().min(10, 'Minimum 10 caractères').max(1000, 'Maximum 1000 caractères'),
+  qualityRating: z.number().min(1).max(5).optional(),
+  punctualityRating: z.number().min(1).max(5).optional(),
+  cleanlinessRating: z.number().min(1).max(5).optional(),
 });
 
 type ReviewFormData = z.infer<typeof reviewSchema>;
@@ -70,6 +75,8 @@ function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps) {
   const prestataire = appointment?.prestataire;
   const name = prestataire?.businessName ||
     `${prestataire?.firstName} ${prestataire?.lastName}`;
+
+  const canEdit = canEditReview(review);
 
   return (
     <Card>
@@ -91,14 +98,16 @@ function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={() => onEdit(review)}>
-                  <Edit2 className="h-4 w-4" />
-                </Button>
+                {canEdit && (
+                  <Button variant="ghost" size="icon" onClick={() => onEdit(review)}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
                   className="text-destructive"
-                  // onClick={() => onDelete(review)}
+                  onClick={() => onDelete(review)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -110,6 +119,11 @@ function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps) {
               <span className="text-sm text-muted-foreground">
                 {format(new Date(createdAt), 'd MMMM yyyy', { locale: fr })}
               </span>
+              {review.editCount > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  Modifié {review.editCount}x
+                </Badge>
+              )}
             </div>
 
             <p className="mt-3 text-muted-foreground">{comment}</p>
@@ -117,7 +131,14 @@ function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps) {
             {/* Réponse du prestataire */}
             {prestataireResponse && (
               <div className="mt-4 p-3 bg-muted rounded-lg">
-                <p className="text-sm font-medium mb-1">Réponse du prestataire :</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-sm font-medium">Réponse du prestataire :</p>
+                  {review.responseAt && (
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(review.responseAt), 'd MMM yyyy', { locale: fr })}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">{prestataireResponse}</p>
               </div>
             )}
@@ -213,7 +234,10 @@ function ReviewDialog({
     if (existingReview) {
       reset({
         rating: existingReview.rating,
-        comment: existingReview.comment ?? undefined,
+        comment: existingReview.comment ?? '',
+        qualityRating: existingReview.qualityRating ?? undefined,
+        punctualityRating: existingReview.punctualityRating ?? undefined,
+        cleanlinessRating: existingReview.cleanlinessRating ?? undefined,
       });
       setRating(existingReview.rating);
     } else {
@@ -240,7 +264,7 @@ function ReviewDialog({
           </DialogTitle>
           <DialogDescription>
             {existingReview
-              ? 'Modifiez votre avis pour ce rendez-vous'
+              ? `Modifiez votre avis (${2 - existingReview.editCount} modification(s) restante(s))`
               : `Partagez votre expérience avec ${name}`}
           </DialogDescription>
         </DialogHeader>
@@ -266,7 +290,7 @@ function ReviewDialog({
 
           {/* Rating */}
           <div className="space-y-2">
-            <Label>Note *</Label>
+            <Label>Note globale *</Label>
             <div className="flex justify-center py-2">
               <RatingStars
                 value={rating}
@@ -299,8 +323,8 @@ function ReviewDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button type="submit" isLoading={isLoading}>
-              {existingReview ? 'Modifier' : 'Publier'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'En cours...' : existingReview ? 'Modifier' : 'Publier'}
             </Button>
           </DialogFooter>
         </form>
@@ -318,10 +342,7 @@ export function ClientReviewsPage() {
   const initialAppointmentId = searchParams.get('appointmentId');
 
   const [activeTab, setActiveTab] = useState<'published' | 'pending'>('published');
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [dialogState, setDialogState] = useState<{
     open: boolean;
@@ -334,43 +355,34 @@ export function ClientReviewsPage() {
     review: Review | null;
   }>({ open: false, review: null });
 
-  // Load data
+  // ✅ Hooks alignés avec le backend
+  const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useMyReviews();
+  const { data: appointmentsData, isLoading: appointmentsLoading } = useMyAppointments({
+    status: AppointmentStatus.COMPLETED,
+  });
+
+  const createReviewMutation = useCreateReview();
+  const updateReviewMutation = useUpdateReview();
+
+  const reviews = reviewsData?.data || [];
+  const allAppointments = appointmentsData?.data || [];
+
+  // Filtrer les rendez-vous sans avis
+  const reviewedIds = new Set(reviews.map((r) => r.appointmentId));
+  const pendingAppointments = allAppointments.filter((a) => !reviewedIds.has(a.id));
+
+  const isLoading = reviewsLoading || appointmentsLoading;
+
+  // Open dialog if appointmentId in URL
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [reviewsData, appointmentsData] = await Promise.all([
-          reviewsService.getMyReviews(),
-          appointmentsService.getMyAppointments({
-            status: AppointmentStatus.COMPLETED,
-          }),
-        ]);
-
-        setReviews(reviewsData.data || []);
-
-        // Filter appointments without reviews
-        const reviewedIds = new Set(reviewsData.data?.map((r: Review) => r.appointmentId) || []);
-        const pending = (appointmentsData.data || []).filter(
-          (a: Appointment) => !reviewedIds.has(a.id)
-        );
-        setPendingAppointments(pending);
-
-        // Open dialog if appointmentId in URL
-        if (initialAppointmentId) {
-          const targetAppointment = pending.find((a: Appointment) => a.id === initialAppointmentId);
-          if (targetAppointment) {
-            setActiveTab('pending');
-            setDialogState({ open: true, appointment: targetAppointment, review: null });
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load reviews:', error);
-        showError('Impossible de charger les avis');
-      } finally {
-        setIsLoading(false);
+    if (initialAppointmentId && !isLoading && pendingAppointments.length > 0) {
+      const targetAppointment = pendingAppointments.find((a) => a.id === initialAppointmentId);
+      if (targetAppointment) {
+        setActiveTab('pending');
+        setDialogState({ open: true, appointment: targetAppointment, review: null });
       }
-    };
-    loadData();
-  }, [initialAppointmentId]);
+    }
+  }, [initialAppointmentId, isLoading, pendingAppointments]);
 
   // Handlers
   const handleCreateReview = (appointment: Appointment) => {
@@ -378,6 +390,10 @@ export function ClientReviewsPage() {
   };
 
   const handleEditReview = (review: Review) => {
+    if (!canEditReview(review)) {
+      showError('Vous ne pouvez plus modifier cet avis');
+      return;
+    }
     setDialogState({ open: true, appointment: review.appointment!, review });
   };
 
@@ -388,61 +404,54 @@ export function ClientReviewsPage() {
   const handleSubmitReview = async (data: ReviewFormData) => {
     if (!dialogState.appointment) return;
 
-    setIsSubmitting(true);
     try {
       if (dialogState.review) {
         // Update existing review
-        const updated = await reviewsService.updateReview(dialogState.review.id, data);
-        setReviews((prev) =>
-          prev.map((r) => (r.id === updated.id ? updated : r))
-        );
-        showSuccess('Avis modifié avec succès');
+        await updateReviewMutation.mutateAsync({
+          id: dialogState.review.id,
+          data: {
+            rating: data.rating,
+            comment: data.comment,
+            qualityRating: data.qualityRating,
+            punctualityRating: data.punctualityRating,
+            cleanlinessRating: data.cleanlinessRating,
+          },
+        });
       } else {
         // Create new review
-        const created = await reviewsService.createReview({
+        await createReviewMutation.mutateAsync({
           appointmentId: dialogState.appointment.id,
-          ...data,
+          rating: data.rating,
+          comment: data.comment,
+          qualityRating: data.qualityRating,
+          punctualityRating: data.punctualityRating,
+          cleanlinessRating: data.cleanlinessRating,
         });
-        setReviews((prev) => [created, ...prev]);
-        setPendingAppointments((prev) =>
-          prev.filter((a) => a.id !== dialogState.appointment!.id)
-        );
-        showSuccess('Avis publié avec succès');
       }
       setDialogState({ open: false, appointment: null, review: null });
     } catch (error) {
-      showError('Une erreur est survenue');
-    } finally {
-      setIsSubmitting(false);
+      // Errors handled by mutations
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteDialog.review) return;
 
-    setIsSubmitting(true);
+    setIsDeleting(true);
     try {
-      await reviewsService.deleteReview(deleteDialog.review.id);
-      setReviews((prev) => prev.filter((r) => r.id !== deleteDialog.review!.id));
-      // Add back to pending
-      if (deleteDialog.review.appointment) {
-        setPendingAppointments((prev) => [deleteDialog.review!.appointment!, ...prev]);
-      }
+      await deleteReview(deleteDialog.review.id);
       showSuccess('Avis supprimé');
+      refetchReviews();
       setDeleteDialog({ open: false, review: null });
     } catch (error) {
-      showError('Impossible de supprimer l\'avis');
+      showError(getErrorMessage(error));
     } finally {
-      setIsSubmitting(false);
+      setIsDeleting(false);
     }
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
@@ -540,13 +549,11 @@ export function ClientReviewsPage() {
       {/* Review Dialog */}
       <ReviewDialog
         open={dialogState.open}
-        onOpenChange={(open) =>
-          setDialogState({ ...dialogState, open })
-        }
+        onOpenChange={(open) => setDialogState({ ...dialogState, open })}
         appointment={dialogState.appointment}
         existingReview={dialogState.review}
         onSubmit={handleSubmitReview}
-        isLoading={isSubmitting}
+        isLoading={createReviewMutation.isPending || updateReviewMutation.isPending}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -565,15 +572,16 @@ export function ClientReviewsPage() {
             <Button
               variant="outline"
               onClick={() => setDeleteDialog({ open: false, review: null })}
+              disabled={isDeleting}
             >
               Annuler
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
-              isLoading={isSubmitting}
+              disabled={isDeleting}
             >
-              Supprimer
+              {isDeleting ? 'Suppression...' : 'Supprimer'}
             </Button>
           </DialogFooter>
         </DialogContent>

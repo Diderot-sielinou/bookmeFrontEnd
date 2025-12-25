@@ -56,6 +56,7 @@ import PrestataireSettingsPage from "@/pages/prestataire/SettingsPage";
 // Error pages
 import NotFoundPage from "@/pages/NotFoundPage";
 import { subscribeToMessageNotifications } from "./lib/socket";
+import NotificationsPage from "./pages/prestataire/NotificationsPage";
 
 // ==========================================
 // APP INITIALIZER
@@ -228,6 +229,10 @@ function App() {
               <Route
                 path={ROUTES.PRESTATAIRE_MESSAGES}
                 element={<PrestataireMessagesPage />}
+              />
+              <Route
+                path={ROUTES.PRESTATAIRE_NOTIFICATION}
+                element={<NotificationsPage />}
               />
               <Route
                 path={ROUTES.PRESTATAIRE_SETTINGS}

@@ -1,22 +1,16 @@
 /**
- * Page Dashboard Prestataire
- *
- * Vue d'ensemble pour les prestataires avec :
- * - Statistiques clés
- * - Rendez-vous du jour
- * - Graphiques
- * - Avis récents
+ * Page Dashboard Prestataire - ALIGNÉE AVEC BACKEND
  */
 
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useQuery } from '@tanstack/react-query';
 import {
   Calendar,
   Clock,
   Euro,
   Star,
-  TrendingUp,
   Users,
   ArrowRight,
   CheckCircle,
@@ -24,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { ROUTES } from "@/lib/constants";
+import { queryKeys } from "@/lib/queryClient";
 import {
   formatPrice,
   formatTime,
@@ -32,6 +27,7 @@ import {
 } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTodayAppointments } from "@/hooks/useAppointments";
+import * as dashboardService from '@/services/dashboard.service';
 import {
   Card,
   CardContent,
@@ -51,9 +47,13 @@ import { EmptyState } from "@/components/shared";
 
 export function PrestataireDashboardPage() {
   const { profile } = useAuth();
-  const { data: todayAppointments, isLoading } = useTodayAppointments();
-
-  console.log(`prestataireProfile ${JSON.stringify(profile)}`)
+  const { data: todayAppointments, isLoading: isLoadingAppointments } = useTodayAppointments();
+  
+  // ✅ NOUVEAU : Récupère les stats du backend
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: queryKeys.dashboard.stats(),
+    queryFn: dashboardService.getStats,
+  });
 
   const prestataireProfile = profile as {
     businessName?: string;
@@ -61,19 +61,15 @@ export function PrestataireDashboardPage() {
     lastName?: string;
     averageRating?: number;
     totalReviews?: number;
+    status?: string;
   } | null;
 
   const displayName =
     prestataireProfile?.businessName ||
     `${prestataireProfile?.firstName} ${prestataireProfile?.lastName}`;
 
-  // Calculs de stats (mock pour l'instant)
-  const stats = {
-    todayAppointments: todayAppointments?.length || 0,
-    weekRevenue: 125000,
-    monthClients: 45,
-    averageRating: prestataireProfile?.averageRating || 0,
-  };
+  // ✅ Utilise les vraies stats du backend
+  const isLoading = isLoadingAppointments || isLoadingStats;
 
   return (
     <div className="space-y-8">
@@ -107,28 +103,26 @@ export function PrestataireDashboardPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="RDV aujourd'hui"
-            value={stats.todayAppointments}
+            label="RDV à venir"
+            value={stats?.upcomingAppointments || 0}
             icon={Calendar}
             iconColor="cyan"
           />
           <StatCard
-            label="Revenus cette semaine"
-            value={formatPrice(stats.weekRevenue)}
+            label="Revenus totaux"
+            value={formatPrice(stats?.totalRevenue || 0)}
             icon={Euro}
-            change={12.5}
             iconColor="green"
           />
           <StatCard
-            label="Clients ce mois"
-            value={stats.monthClients}
+            label="RDV terminés"
+            value={stats?.completedAppointments || 0}
             icon={Users}
-            change={8.2}
             iconColor="teal"
           />
           <StatCard
             label="Note moyenne"
-            value={Number(stats.averageRating ?? 0).toFixed(1)} // ✅ Fix
+            value={Number(stats?.averageRating ?? 0).toFixed(1)}
             icon={Star}
             iconColor="amber"
           />
@@ -147,7 +141,7 @@ export function PrestataireDashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {isLoading && (
+            {isLoadingAppointments && (
               <div className="space-y-2">
                 <SkeletonRow />
                 <SkeletonRow />
@@ -155,7 +149,7 @@ export function PrestataireDashboardPage() {
               </div>
             )}
 
-            {!isLoading &&
+            {!isLoadingAppointments &&
               (!todayAppointments || todayAppointments.length === 0) && (
                 <EmptyState
                   icon={Calendar}
@@ -164,7 +158,7 @@ export function PrestataireDashboardPage() {
                 />
               )}
 
-            {!isLoading &&
+            {!isLoadingAppointments &&
               todayAppointments &&
               todayAppointments.length > 0 && (
                 <div className="space-y-3">
@@ -281,24 +275,22 @@ export function PrestataireDashboardPage() {
       </div>
 
       {/* Alerte statut */}
-      {prestataireProfile &&
-        "status" in prestataireProfile &&
-        prestataireProfile.status === "PENDING" && (
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="p-6 flex items-start gap-4">
-              <AlertCircle className="h-6 w-6 text-amber-600 shrink-0" />
-              <div>
-                <h3 className="font-semibold text-amber-800">
-                  Compte en attente de validation
-                </h3>
-                <p className="text-sm text-amber-700 mt-1">
-                  Votre profil est en cours de vérification par notre équipe.
-                  Vous recevrez un email dès que votre compte sera activé.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {prestataireProfile?.status === "PENDING" && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-6 flex items-start gap-4">
+            <AlertCircle className="h-6 w-6 text-amber-600 shrink-0" />
+            <div>
+              <h3 className="font-semibold text-amber-800">
+                Compte en attente de validation
+              </h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Votre profil est en cours de vérification par notre équipe.
+                Vous recevrez un email dès que votre compte sera activé.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

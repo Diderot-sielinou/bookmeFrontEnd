@@ -638,7 +638,6 @@ export function BookingPage() {
 
     try {
       await createAppointment({
-        prestataireId: prestataireId!,
         slotId: booking.slot.id,
         serviceId: booking.service.id,
         clientNote: booking.note || undefined,

@@ -1,13 +1,14 @@
 /**
  * ReviewsPage (Prestataire)
- * 
+ *
  * Page de gestion des avis pour les prestataires.
  * Permet de voir les avis reçus et d'y répondre.
+ * ALIGNÉ AVEC LE BACKEND
  */
 
-import { useState } from 'react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { useState } from "react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import {
   Star,
   Search,
@@ -18,22 +19,29 @@ import {
   Minus,
   ThumbsUp,
   Loader2,
-} from 'lucide-react';
+  RefreshCw,
+} from "lucide-react";
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -41,96 +49,74 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { showSuccess, showError } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
 
-// ==========================================
-// LOCAL TYPES
-// ==========================================
-
-interface LocalReview {
-  id: string;
-  rating: number;
-  comment: string;
-  createdAt: string;
-  client: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
-  serviceName: string;
-  response?: string;
-  responseDate?: string;
-}
-
-// ==========================================
-// MOCK DATA
-// ==========================================
-
-const mockReviews: LocalReview[] = [
-  {
-    id: '1',
-    rating: 5,
-    comment: 'Excellente expérience ! Marie est très professionnelle et à l\'écoute. Ma coupe est exactement ce que je voulais. Je recommande vivement !',
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    client: { id: '1', firstName: 'Sophie', lastName: 'Martin' },
-    serviceName: 'Coupe femme',
-    response: 'Merci beaucoup Sophie ! C\'était un plaisir de vous recevoir. À très bientôt !',
-    responseDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '2',
-    rating: 4,
-    comment: 'Bon service, coiffure réussie. Un peu d\'attente mais rien de grave.',
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    client: { id: '2', firstName: 'Pierre', lastName: 'Durand' },
-    serviceName: 'Coupe homme',
-  },
-  {
-    id: '3',
-    rating: 5,
-    comment: 'Parfait comme toujours ! Marie est ma coiffeuse attitrée depuis 2 ans.',
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    client: { id: '3', firstName: 'Julie', lastName: 'Petit' },
-    serviceName: 'Coloration',
-    response: 'Merci Julie pour ta fidélité ! C\'est toujours un plaisir 💇‍♀️',
-    responseDate: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '4',
-    rating: 3,
-    comment: 'Correct mais pas exceptionnel. Le résultat est bon mais l\'accueil pourrait être plus chaleureux.',
-    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    client: { id: '4', firstName: 'Marc', lastName: 'Bernard' },
-    serviceName: 'Brushing',
-  },
-  {
-    id: '5',
-    rating: 5,
-    comment: 'Super coloration, exactement la teinte que je voulais !',
-    createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    client: { id: '5', firstName: 'Emma', lastName: 'Leroy' },
-    serviceName: 'Coloration',
-  },
-];
-
-const mockStats = {
-  averageRating: 4.4,
-  totalReviews: 127,
-  ratingDistribution: { 5: 85, 4: 25, 3: 10, 2: 5, 1: 2 },
-  responseRate: 68,
-  trend: 'up' as 'up' | 'down' | 'stable',
-};
+// ✅ Hooks alignés avec le backend
+import { useReviewsManagement, useFlagReview } from "@/hooks/useReviews";
+import { useAuth } from "@/hooks/useAuth";
+import { getReviewStats } from "@/services/reviews.service";
+import { useQuery } from "@tanstack/react-query";
+import type { Review } from "@/types";
 
 // ==========================================
 // STATS COMPONENT
 // ==========================================
 
-function ReviewStats() {
-  const stats = mockStats;
+// ==========================================
+// STATS COMPONENT - CORRIGÉ
+// ==========================================
+
+function ReviewStats({ prestataireId }: { prestataireId: string }) {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['reviews', 'stats', prestataireId],
+    queryFn: () => getReviewStats(prestataireId),
+    enabled: !!prestataireId,
+  });
+
+  if (isLoading || !stats) {
+    return (
+      <Card>
+        <CardContent className="p-6 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ✅ Gérer les deux formats possibles de distribution
+  const getDistributionCount = (rating: number): number => {
+    if (Array.isArray(stats.distribution)) {
+      // Format tableau: [{ rating: 5, count: 10, percentage: 50 }, ...]
+      const item = stats.distribution.find((d: { rating: number; count: number }) => d.rating === rating);
+      return item?.count || 0;
+    } else if (stats.distribution && typeof stats.distribution === 'object') {
+      // Format objet: { 5: 10, 4: 5, 3: 2, 2: 1, 1: 0 }
+      return (stats.distribution as Record<number, number>)[rating] || 0;
+    }
+    return 0;
+  };
+
+  const getDistributionPercentage = (rating: number): number => {
+    if (Array.isArray(stats.distribution)) {
+      const item = stats.distribution.find((d: { rating: number; percentage: number }) => d.rating === rating);
+      return item?.percentage || 0;
+    } else if (stats.distribution && typeof stats.distribution === 'object') {
+      const count = (stats.distribution as Record<number, number>)[rating] || 0;
+      return stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
+    }
+    return 0;
+  };
+
+  // Calculer le trend
+  const positiveCount = getDistributionCount(5) + getDistributionCount(4);
+  const positiveRate = stats.totalReviews > 0 ? (positiveCount / stats.totalReviews) * 100 : 0;
+  const trend = positiveRate >= 70 ? 'up' : positiveRate >= 50 ? 'stable' : 'down';
 
   return (
     <Card>
@@ -140,26 +126,29 @@ function ReviewStats() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Note moyenne */}
           <div className="text-center">
             <div className="flex items-center justify-center gap-2">
-              <span className="text-4xl font-bold">{stats.averageRating}</span>
+              <span className="text-4xl font-bold">
+                {(stats.averageRating || 0).toFixed(1)}
+              </span>
               <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
             </div>
-            <p className="text-muted-foreground mt-1">sur {stats.totalReviews} avis</p>
+            <p className="text-muted-foreground mt-1">sur {stats.totalReviews || 0} avis</p>
             <div className="flex items-center justify-center gap-1 mt-2">
-              {stats.trend === 'up' && (
+              {trend === 'up' && (
                 <>
                   <TrendingUp className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-green-500">En hausse</span>
                 </>
               )}
-              {stats.trend === 'down' && (
+              {trend === 'down' && (
                 <>
                   <TrendingDown className="h-4 w-4 text-red-500" />
                   <span className="text-sm text-red-500">En baisse</span>
                 </>
               )}
-              {stats.trend === 'stable' && (
+              {trend === 'stable' && (
                 <>
                   <Minus className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Stable</span>
@@ -168,10 +157,11 @@ function ReviewStats() {
             </div>
           </div>
 
+          {/* Distribution */}
           <div className="space-y-2">
             {[5, 4, 3, 2, 1].map((rating) => {
-              const count = stats.ratingDistribution[rating as keyof typeof stats.ratingDistribution];
-              const percentage = (count / stats.totalReviews) * 100;
+              const count = getDistributionCount(rating);
+              const percentage = getDistributionPercentage(rating);
               return (
                 <div key={rating} className="flex items-center gap-2">
                   <span className="w-3 text-sm font-medium">{rating}</span>
@@ -183,32 +173,30 @@ function ReviewStats() {
             })}
           </div>
 
-          <div className="text-center">
-            <div className="relative inline-flex items-center justify-center">
-              <svg className="w-24 h-24">
-                <circle
-                  className="text-muted stroke-current"
-                  strokeWidth="8"
-                  fill="transparent"
-                  r="40"
-                  cx="48"
-                  cy="48"
-                />
-                <circle
-                  className="text-primary stroke-current"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  fill="transparent"
-                  r="40"
-                  cx="48"
-                  cy="48"
-                  strokeDasharray={`${stats.responseRate * 2.51} 251`}
-                  transform="rotate(-90 48 48)"
-                />
-              </svg>
-              <span className="absolute text-xl font-bold">{stats.responseRate}%</span>
-            </div>
-            <p className="text-muted-foreground mt-2">Taux de réponse</p>
+          {/* Sous-critères */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm">Détails</h4>
+            {stats.averageQuality !== null && stats.averageQuality !== undefined && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Qualité</span>
+                <span className="font-medium">{stats.averageQuality.toFixed(1)}/5</span>
+              </div>
+            )}
+            {stats.averagePunctuality !== null && stats.averagePunctuality !== undefined && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Ponctualité</span>
+                <span className="font-medium">{stats.averagePunctuality.toFixed(1)}/5</span>
+              </div>
+            )}
+            {stats.averageCleanliness !== null && stats.averageCleanliness !== undefined && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Propreté</span>
+                <span className="font-medium">{stats.averageCleanliness.toFixed(1)}/5</span>
+              </div>
+            )}
+            {!stats.averageQuality && !stats.averagePunctuality && !stats.averageCleanliness && (
+              <p className="text-sm text-muted-foreground">Pas encore de détails</p>
+            )}
           </div>
         </div>
       </CardContent>
@@ -221,30 +209,43 @@ function ReviewStats() {
 // ==========================================
 
 interface ReviewCardProps {
-  review: LocalReview;
-  onReply: (review: LocalReview) => void;
-  onReport: (review: LocalReview) => void;
+  review: Review;
+  onReply: (review: Review) => void;
+  onReport: (review: Review) => void;
 }
 
 function ReviewCard({ review, onReply, onReport }: ReviewCardProps) {
-  const clientName = `${review.client.firstName} ${review.client.lastName}`;
-  const clientInitials = `${review.client.firstName[0]}${review.client.lastName[0]}`;
+  const client = review.client;
+  const clientName = client
+    ? `${client.firstName} ${client.lastName}`
+    : "Client";
+  const clientInitials = client
+    ? `${client.firstName[0]}${client.lastName[0]}`
+    : "CL";
+
+  const serviceName = review.appointment?.service?.name || "Service";
 
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
-          <Avatar>
-            <AvatarImage src={undefined} />
+          <Avatar
+           src={client?.avatar || undefined}
+            firstName={client?.firstName}
+            lastName={client?.lastName}
+            className="h-12 w-12"
+          />
+          {/* <Avatar>
+            <AvatarImage src={client?.avatar || undefined} />
             <AvatarFallback>{clientInitials}</AvatarFallback>
-          </Avatar>
+          </Avatar> */}
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold">{clientName}</h3>
-                  <Badge variant="secondary">{review.serviceName}</Badge>
+                  <Badge variant="secondary">{serviceName}</Badge>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="flex">
@@ -253,26 +254,36 @@ function ReviewCard({ review, onReply, onReport }: ReviewCardProps) {
                         key={i}
                         className={`h-4 w-4 ${
                           i < review.rating
-                            ? 'text-yellow-500 fill-yellow-500'
-                            : 'text-gray-300'
+                            ? "text-yellow-500 fill-yellow-500"
+                            : "text-gray-300"
                         }`}
                       />
                     ))}
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    {format(new Date(review.createdAt), 'd MMMM yyyy', { locale: fr })}
+                    {format(new Date(review.createdAt), "d MMMM yyyy", {
+                      locale: fr,
+                    })}
                   </span>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                {!review.response && (
-                  <Button variant="outline" size="sm" onClick={() => onReply(review)}>
+                {!review.prestataireResponse && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onReply(review)}
+                  >
                     <Reply className="h-4 w-4 mr-1" />
                     Répondre
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => onReport(review)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onReport(review)}
+                >
                   <Flag className="h-4 w-4" />
                 </Button>
               </div>
@@ -280,17 +291,41 @@ function ReviewCard({ review, onReply, onReport }: ReviewCardProps) {
 
             <p className="mt-3 text-muted-foreground">{review.comment}</p>
 
-            {review.response && (
+            {/* Sous-notes */}
+            {(review.qualityRating ||
+              review.punctualityRating ||
+              review.cleanlinessRating) && (
+              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                {review.qualityRating && (
+                  <span>Qualité: {review.qualityRating}/5</span>
+                )}
+                {review.punctualityRating && (
+                  <span>Ponctualité: {review.punctualityRating}/5</span>
+                )}
+                {review.cleanlinessRating && (
+                  <span>Propreté: {review.cleanlinessRating}/5</span>
+                )}
+              </div>
+            )}
+
+            {/* Réponse du prestataire */}
+            {review.prestataireResponse && (
               <div className="mt-4 pl-4 border-l-2 border-primary/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="text-xs">Votre réponse</Badge>
-                  {review.responseDate && (
+                  <Badge variant="outline" className="text-xs">
+                    Votre réponse
+                  </Badge>
+                  {review.responseAt && (
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(review.responseDate), 'd MMM yyyy', { locale: fr })}
+                      {format(new Date(review.responseAt), "d MMM yyyy", {
+                        locale: fr,
+                      })}
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">{review.response}</p>
+                <p className="text-sm text-muted-foreground">
+                  {review.prestataireResponse}
+                </p>
               </div>
             )}
           </div>
@@ -305,61 +340,106 @@ function ReviewCard({ review, onReply, onReport }: ReviewCardProps) {
 // ==========================================
 
 export default function ReviewsPage() {
-  const [reviews] = useState<LocalReview[]>(mockReviews);
-  const [isLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [ratingFilter, setRatingFilter] = useState<string>('all');
-  const [responseFilter, setResponseFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState('all');
+  const { profile } = useAuth();
+  const prestataireId = profile?.id;
+
+  // ✅ Hook aligné avec le backend
+  const { reviews, isLoading, respond, isResponding, refetch } =
+    useReviewsManagement();
+  const flagMutation = useFlagReview();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [ratingFilter, setRatingFilter] = useState<string>("all");
+  const [responseFilter, setResponseFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [replyDialogOpen, setReplyDialogOpen] = useState(false);
-  const [selectedReview, setSelectedReview] = useState<LocalReview | null>(null);
-  const [replyText, setReplyText] = useState('');
-  const [replyLoading, setReplyLoading] = useState(false);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [replyText, setReplyText] = useState("");
 
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+
+  // Filtrer les avis
   const filteredReviews = reviews.filter((review) => {
-    const clientName = `${review.client.firstName} ${review.client.lastName}`.toLowerCase();
-    const comment = review.comment.toLowerCase();
+    const client = review.client;
+    const clientName = client
+      ? `${client.firstName} ${client.lastName}`.toLowerCase()
+      : "";
+    const comment = (review.comment || "").toLowerCase();
     const query = searchQuery.toLowerCase();
+
     if (query && !clientName.includes(query) && !comment.includes(query)) {
       return false;
     }
 
-    if (ratingFilter !== 'all' && review.rating !== parseInt(ratingFilter)) {
+    if (ratingFilter !== "all" && review.rating !== parseInt(ratingFilter)) {
       return false;
     }
 
-    if (responseFilter === 'responded' && !review.response) return false;
-    if (responseFilter === 'pending' && review.response) return false;
+    if (responseFilter === "responded" && !review.prestataireResponse)
+      return false;
+    if (responseFilter === "pending" && review.prestataireResponse)
+      return false;
 
-    if (activeTab === 'positive' && review.rating < 4) return false;
-    if (activeTab === 'negative' && review.rating >= 4) return false;
+    if (activeTab === "positive" && review.rating < 4) return false;
+    if (activeTab === "negative" && review.rating >= 4) return false;
 
     return true;
   });
 
-  const handleReply = (review: LocalReview) => {
+  const pendingResponseCount = reviews.filter(
+    (r) => !r.prestataireResponse
+  ).length;
+
+  // Handlers
+  const handleReply = (review: Review) => {
     setSelectedReview(review);
-    setReplyText('');
+    setReplyText("");
     setReplyDialogOpen(true);
   };
 
-  const handleReport = (review: LocalReview) => {
-    console.log('Report review:', review.id);
+  const handleReport = (review: Review) => {
+    setSelectedReview(review);
+    setReportReason("");
+    setReportDialogOpen(true);
   };
 
   const submitReply = async () => {
     if (!selectedReview || !replyText.trim()) return;
 
-    setReplyLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setReplyLoading(false);
-    setReplyDialogOpen(false);
-    setReplyText('');
-    setSelectedReview(null);
+    try {
+      await respond({ id: selectedReview.id, data: { response: replyText } });
+      setReplyDialogOpen(false);
+      setReplyText("");
+      setSelectedReview(null);
+    } catch (error) {
+      // Error handled by mutation
+    }
   };
 
-  const pendingResponseCount = reviews.filter((r) => !r.response).length;
+  const submitReport = async () => {
+    if (!selectedReview || !reportReason.trim()) return;
+
+    try {
+      await flagMutation.mutateAsync({
+        id: selectedReview.id,
+        reason: reportReason,
+      });
+      setReportDialogOpen(false);
+      setReportReason("");
+      setSelectedReview(null);
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -367,18 +447,32 @@ export default function ReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Avis clients</h1>
-        <p className="text-muted-foreground">
-          {pendingResponseCount > 0 
-            ? `${pendingResponseCount} avis en attente de réponse`
-            : 'Tous les avis ont une réponse'
-          }
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Avis clients</h1>
+          <p className="text-muted-foreground">
+            {pendingResponseCount > 0
+              ? `${pendingResponseCount} avis en attente de réponse`
+              : "Tous les avis ont une réponse"}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+          />
+          Actualiser
+        </Button>
       </div>
 
-      <ReviewStats />
+      {/* Stats */}
+      {prestataireId && <ReviewStats prestataireId={prestataireId} />}
 
+      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
@@ -420,11 +514,10 @@ export default function ReviewsPage() {
         </CardContent>
       </Card>
 
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="all">
-            Tous ({reviews.length})
-          </TabsTrigger>
+          <TabsTrigger value="all">Tous ({reviews.length})</TabsTrigger>
           <TabsTrigger value="positive" className="flex items-center gap-1">
             <ThumbsUp className="h-4 w-4" />
             Positifs ({reviews.filter((r) => r.rating >= 4).length})
@@ -456,6 +549,7 @@ export default function ReviewsPage() {
         </TabsContent>
       </Tabs>
 
+      {/* Reply Dialog */}
       <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -469,7 +563,8 @@ export default function ReviewsPage() {
             <div className="bg-muted/50 p-3 rounded-lg text-sm">
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-medium">
-                  {selectedReview.client.firstName} {selectedReview.client.lastName}
+                  {selectedReview.client?.firstName}{" "}
+                  {selectedReview.client?.lastName}
                 </span>
                 <div className="flex">
                   {[...Array(5)].map((_, i) => (
@@ -477,8 +572,8 @@ export default function ReviewsPage() {
                       key={i}
                       className={`h-3 w-3 ${
                         i < selectedReview.rating
-                          ? 'text-yellow-500 fill-yellow-500'
-                          : 'text-gray-300'
+                          ? "text-yellow-500 fill-yellow-500"
+                          : "text-gray-300"
                       }`}
                     />
                   ))}
@@ -497,20 +592,76 @@ export default function ReviewsPage() {
               onChange={(e) => setReplyText(e.target.value)}
               rows={4}
             />
+            <p className="text-xs text-muted-foreground">
+              5 à 500 caractères ({replyText.length}/500)
+            </p>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setReplyDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={submitReply} disabled={!replyText.trim() || replyLoading}>
-              {replyLoading ? (
+            <Button
+              onClick={submitReply}
+              disabled={
+                replyText.trim().length < 5 ||
+                replyText.length > 500 ||
+                isResponding
+              }
+            >
+              {isResponding ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Publication...
                 </>
               ) : (
-                'Publier la réponse'
+                "Publier la réponse"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report Dialog */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Signaler l'avis</DialogTitle>
+            <DialogDescription>
+              Expliquez pourquoi cet avis devrait être examiné par notre équipe.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="reason">Raison du signalement</Label>
+            <Textarea
+              id="reason"
+              placeholder="Décrivez le problème..."
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReportDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={submitReport}
+              disabled={!reportReason.trim() || flagMutation.isPending}
+              variant="destructive"
+            >
+              {flagMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Envoi...
+                </>
+              ) : (
+                "Signaler"
               )}
             </Button>
           </DialogFooter>

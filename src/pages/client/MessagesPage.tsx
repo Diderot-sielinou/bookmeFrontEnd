@@ -1,21 +1,29 @@
 /**
  * Page Messages (Client)
- * 
- * Interface de messagerie avec les prestataires.
- * Liste des conversations et fil de discussion.
+ * CORRIGÉ - Validation des dates + useEffect
  */
 
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { format, isToday, isYesterday } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { Send, Search, ArrowLeft, MessageSquare } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
+import { format, isToday, isYesterday, isValid, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
+import {
+  Send,
+  Search,
+  ArrowLeft,
+  MessageSquare,
+  RefreshCw,
+} from "lucide-react";
 
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
-import { useMessageSocket } from '@/hooks/useSocket';
-import { messagesService } from '@/services';
-import type { Message, Appointment } from '@/types';
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  useMessageSocket,
+  useMessageNotifications,
+  type SocketMessage,
+} from "@/hooks/useSocket";
+import { messagesService } from "@/services";
+import type { Message, Appointment } from "@/types";
 import {
   Card,
   CardContent,
@@ -24,47 +32,126 @@ import {
   Avatar,
   Badge,
   Separator,
-} from '@/components/ui';
-import { Spinner } from '@/components/ui/spinner';
-import { EmptyState } from '@/components/shared';
+} from "@/components/ui";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/shared";
+import { showError } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
 
 // ==========================================
 // TYPES
 // ==========================================
 
-// Socket message type for new messages
-interface SocketMessage {
-  id: string;
-  appointmentId: string;
-  senderId: string;
-  content: string;
-  createdAt: string;
-}
-
 interface Conversation {
-  appointmentId: string;
   appointment: Appointment;
   lastMessage: Message | null;
   unreadCount: number;
 }
 
 // ==========================================
-// HELPERS
+// HELPERS - avec validation de date
 // ==========================================
 
-function formatMessageDate(dateString: string): string {
-  const date = new Date(dateString);
-  if (isToday(date)) {
-    return format(date, 'HH:mm');
+/**
+ * Parse une date de manière sécurisée
+ */
+function safeParseDate(dateValue: string | Date | null | undefined): Date | null {
+  if (!dateValue) return null;
+
+  try {
+    // Si c'est déjà un objet Date valide
+    if (dateValue instanceof Date) {
+      return isValid(dateValue) ? dateValue : null;
+    }
+
+    // Si c'est une chaîne
+    if (typeof dateValue === "string") {
+      // Essayer parseISO d'abord (format ISO 8601)
+      const parsed = parseISO(dateValue);
+      if (isValid(parsed)) return parsed;
+
+      // Essayer new Date en fallback
+      const fallback = new Date(dateValue);
+      if (isValid(fallback)) return fallback;
+    }
+
+    return null;
+  } catch {
+    return null;
   }
-  if (isYesterday(date)) {
-    return 'Hier';
-  }
-  return format(date, 'dd/MM/yy');
 }
 
-function formatMessageTime(dateString: string): string {
-  return format(new Date(dateString), 'HH:mm');
+function formatMessageDate(dateValue: string | Date | null | undefined): string {
+  const date = safeParseDate(dateValue);
+  if (!date) return "";
+
+  try {
+    if (isToday(date)) {
+      return format(date, "HH:mm");
+    }
+    if (isYesterday(date)) {
+      return "Hier";
+    }
+    return format(date, "dd/MM/yy");
+  } catch {
+    return "";
+  }
+}
+
+function formatMessageTime(dateValue: string | Date | null | undefined): string {
+  const date = safeParseDate(dateValue);
+  if (!date) return "";
+
+  try {
+    return format(date, "HH:mm");
+  } catch {
+    return "";
+  }
+}
+
+function formatDateSeparator(dateValue: string | Date | null | undefined): string {
+  const date = safeParseDate(dateValue);
+  if (!date) return "";
+
+  try {
+    if (isToday(date)) {
+      return "Aujourd'hui";
+    }
+    if (isYesterday(date)) {
+      return "Hier";
+    }
+    return format(date, "d MMMM yyyy", { locale: fr });
+  } catch {
+    return "";
+  }
+}
+
+function getDateKey(dateValue: string | Date | null | undefined): string {
+  const date = safeParseDate(dateValue);
+  if (!date) return "unknown";
+
+  try {
+    return format(date, "yyyy-MM-dd");
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Normalise une date en string ISO
+ */
+function normalizeDateToISO(dateValue: string | Date | null | undefined): string {
+  if (!dateValue) return new Date().toISOString();
+
+  if (typeof dateValue === "string") {
+    return dateValue;
+  }
+
+  if (dateValue instanceof Date && isValid(dateValue)) {
+    return dateValue.toISOString();
+  }
+
+  return new Date().toISOString();
 }
 
 // ==========================================
@@ -89,8 +176,10 @@ function ConversationList({
   isLoading,
 }: ConversationListProps) {
   const filtered = conversations.filter((conv) => {
-    const name = conv.appointment.prestataire?.businessName ||
-      `${conv.appointment.prestataire?.firstName} ${conv.appointment.prestataire?.lastName}`;
+    const prestataire = conv.appointment?.prestataire;
+    const name =
+      prestataire?.businessName ||
+      `${prestataire?.firstName || ""} ${prestataire?.lastName || ""}`;
     return name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
@@ -117,22 +206,24 @@ function ConversationList({
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
-            {searchQuery ? 'Aucun résultat' : 'Aucune conversation'}
+            {searchQuery ? "Aucun résultat" : "Aucune conversation"}
           </div>
         ) : (
-          filtered.map((conv) => {
-            const prestataire = conv.appointment.prestataire;
-            const name = prestataire?.businessName ||
-              `${prestataire?.firstName} ${prestataire?.lastName}`;
-            const isSelected = selectedId === conv.appointmentId;
+          filtered.map((conv, index) => {
+            const prestataire = conv.appointment?.prestataire;
+            const name =
+              prestataire?.businessName ||
+              `${prestataire?.firstName || ""} ${prestataire?.lastName || ""}`;
+            const appointmentId = conv.appointment?.id;
+            const isSelected = selectedId === appointmentId;
 
             return (
               <button
-                key={conv.appointmentId}
-                onClick={() => onSelect(conv.appointmentId)}
+                key={appointmentId || `conv-${index}`}
+                onClick={() => appointmentId && onSelect(appointmentId)}
                 className={cn(
-                  'w-full p-4 flex items-start gap-3 hover:bg-accent transition-colors text-left',
-                  isSelected && 'bg-accent'
+                  "w-full p-4 flex items-start gap-3 hover:bg-accent transition-colors text-left",
+                  isSelected && "bg-accent"
                 )}
               >
                 <Avatar
@@ -143,18 +234,32 @@ function ConversationList({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="font-medium truncate">{name}</p>
-                    {conv.lastMessage && (
+                    <p
+                      className={cn(
+                        "font-medium truncate",
+                        conv.unreadCount > 0 && "font-semibold"
+                      )}
+                    >
+                      {name || "Prestataire"}
+                    </p>
+                    {conv.lastMessage?.createdAt && (
                       <span className="text-xs text-muted-foreground">
                         {formatMessageDate(conv.lastMessage.createdAt)}
                       </span>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground truncate mt-0.5">
-                    {conv.appointment.service?.name}
+                    {conv.appointment?.service?.name || "Service"}
                   </p>
                   {conv.lastMessage && (
-                    <p className="text-sm text-muted-foreground truncate mt-1">
+                    <p
+                      className={cn(
+                        "text-sm truncate mt-1",
+                        conv.unreadCount > 0
+                          ? "text-foreground font-medium"
+                          : "text-muted-foreground"
+                      )}
+                    >
                       {conv.lastMessage.content}
                     </p>
                   )}
@@ -193,35 +298,36 @@ function MessageThread({
   appointment,
 }: MessageThreadProps) {
   const { user } = useAuth();
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() && !isSending) {
       onSend(newMessage.trim());
-      setNewMessage('');
+      setNewMessage("");
     }
   };
 
   const prestataire = appointment?.prestataire;
-  const name = prestataire?.businessName ||
-    `${prestataire?.firstName} ${prestataire?.lastName}`;
+  const name =
+    prestataire?.businessName ||
+    `${prestataire?.firstName || ""} ${prestataire?.lastName || ""}`;
 
-  // Group messages by date
-  const groupedMessages: { date: string; messages: Message[] }[] = [];
+  // Group messages by date - avec validation
+  const groupedMessages: { date: string; label: string; messages: Message[] }[] = [];
   messages.forEach((msg) => {
-    const date = format(new Date(msg.createdAt), 'yyyy-MM-dd');
-    const group = groupedMessages.find((g) => g.date === date);
+    const dateKey = getDateKey(msg.createdAt);
+    const dateLabel = formatDateSeparator(msg.createdAt);
+    const group = groupedMessages.find((g) => g.date === dateKey);
     if (group) {
       group.messages.push(msg);
     } else {
-      groupedMessages.push({ date, messages: [msg] });
+      groupedMessages.push({ date: dateKey, label: dateLabel, messages: [msg] });
     }
   });
 
@@ -229,7 +335,12 @@ function MessageThread({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          className="md:hidden"
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Avatar
@@ -251,17 +362,15 @@ function MessageThread({
         {groupedMessages.map((group) => (
           <div key={group.date}>
             {/* Date separator */}
-            <div className="flex items-center gap-4 my-4">
-              <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground">
-                {isToday(new Date(group.date))
-                  ? "Aujourd'hui"
-                  : isYesterday(new Date(group.date))
-                  ? 'Hier'
-                  : format(new Date(group.date), 'd MMMM yyyy', { locale: fr })}
-              </span>
-              <Separator className="flex-1" />
-            </div>
+            {group.label && (
+              <div className="flex items-center gap-4 my-4">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">
+                  {group.label}
+                </span>
+                <Separator className="flex-1" />
+              </div>
+            )}
 
             {/* Messages */}
             {group.messages.map((msg) => {
@@ -270,23 +379,25 @@ function MessageThread({
                 <div
                   key={msg.id}
                   className={cn(
-                    'flex',
-                    isOwn ? 'justify-end' : 'justify-start'
+                    "flex mb-2",
+                    isOwn ? "justify-end" : "justify-start"
                   )}
                 >
                   <div
                     className={cn(
-                      'max-w-[70%] rounded-2xl px-4 py-2',
+                      "max-w-[70%] rounded-2xl px-4 py-2",
                       isOwn
-                        ? 'bg-cyan-500 text-white rounded-br-sm'
-                        : 'bg-muted rounded-bl-sm'
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-muted rounded-bl-sm"
                     )}
                   >
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                     <p
                       className={cn(
-                        'text-[10px] mt-1',
-                        isOwn ? 'text-cyan-100' : 'text-muted-foreground'
+                        "text-[10px] mt-1",
+                        isOwn
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
                       )}
                     >
                       {formatMessageTime(msg.createdAt)}
@@ -311,7 +422,7 @@ function MessageThread({
             className="flex-1"
           />
           <Button type="submit" disabled={!newMessage.trim() || isSending}>
-            <Send className="h-4 w-4" />
+            {isSending ? <Spinner size="sm" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
       </form>
@@ -325,32 +436,121 @@ function MessageThread({
 
 export function ClientMessagesPage() {
   const [searchParams] = useSearchParams();
-  const initialAppointmentId = searchParams.get('appointmentId');
+  const initialAppointmentId = searchParams.get("appointmentId");
+  const { user } = useAuth();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(initialAppointmentId);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialAppointmentId
+  );
   const [messages, setMessages] = useState<Message[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // WebSocket handlers
+  const handleNewMessage = useCallback(
+    (socketMessage: SocketMessage) => {
+      // Normaliser la date
+      const normalizedCreatedAt = normalizeDateToISO(socketMessage.createdAt);
+
+      if (socketMessage.appointmentId === selectedId) {
+        const newMessage: Message = {
+          id: socketMessage.id,
+          appointmentId: socketMessage.appointmentId,
+          senderId: socketMessage.senderId,
+          content: socketMessage.content,
+          read: socketMessage.senderId === user?.id,
+          readAt: null,
+          flagged: false,
+          flagReason: null,
+          createdAt: normalizedCreatedAt,
+        };
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMessage.id)) return prev;
+          return [...prev, newMessage];
+        });
+      }
+
+      setConversations((prev) =>
+        prev.map((conv) => {
+          if (conv.appointment.id === socketMessage.appointmentId) {
+            const isCurrentConv = socketMessage.appointmentId === selectedId;
+            return {
+              ...conv,
+              lastMessage: {
+                id: socketMessage.id,
+                appointmentId: socketMessage.appointmentId,
+                senderId: socketMessage.senderId,
+                content: socketMessage.content,
+                read: isCurrentConv || socketMessage.senderId === user?.id,
+                readAt: null,
+                flagged: false,
+                flagReason: null,
+                createdAt: normalizedCreatedAt,
+              },
+              unreadCount: isCurrentConv
+                ? 0
+                : conv.unreadCount +
+                  (socketMessage.senderId !== user?.id ? 1 : 0),
+            };
+          }
+          return conv;
+        })
+      );
+    },
+    [selectedId, user?.id]
+  );
+
+  useMessageSocket(selectedId, {
+    onNewMessage: handleNewMessage,
+    onMessagesRead: (event) => {
+      if (event.appointmentId === selectedId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.senderId === user?.id
+              ? { ...m, read: true, readAt: new Date().toISOString() }
+              : m
+          )
+        );
+      }
+    },
+  });
+
+  useMessageNotifications((notification) => {
+    if (notification.appointmentId !== selectedId) {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.appointment.id === notification.appointmentId
+            ? { ...conv, unreadCount: conv.unreadCount + 1 }
+            : conv
+        )
+      );
+    }
+  });
 
   // Load conversations
-  useEffect(() => {
-    const loadConversations = async () => {
-      try {
-        const data = await messagesService.getConversations();
-        setConversations(data);
-      } catch (error) {
-        console.error('Failed to load conversations:', error);
-      } finally {
-        setIsLoadingConversations(false);
-      }
-    };
-    loadConversations();
+  const loadConversations = useCallback(async () => {
+    try {
+      const response = await messagesService.getConversations();
+      setConversations(response.data || []);
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+      showError(getErrorMessage(error));
+    } finally {
+      setIsLoadingConversations(false);
+    }
   }, []);
 
-  // Load messages when conversation selected
+  // useEffect pour charger les conversations
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Load messages
   useEffect(() => {
     if (!selectedId) {
       setMessages([]);
@@ -360,18 +560,21 @@ export function ClientMessagesPage() {
     const loadMessages = async () => {
       setIsLoadingMessages(true);
       try {
-        const response = await messagesService.getMessagesByAppointment(selectedId);
+        const response = await messagesService.getMessagesByAppointment(
+          selectedId
+        );
         setMessages(response.data || []);
-        // Mark as read
         await messagesService.markAsRead(selectedId);
-        // Update unread count in conversations
         setConversations((prev) =>
           prev.map((conv) =>
-            conv.appointmentId === selectedId ? { ...conv, unreadCount: 0 } : conv
+            conv.appointment.id === selectedId
+              ? { ...conv, unreadCount: 0 }
+              : conv
           )
         );
       } catch (error) {
-        console.error('Failed to load messages:', error);
+        console.error("Failed to load messages:", error);
+        showError(getErrorMessage(error));
       } finally {
         setIsLoadingMessages(false);
       }
@@ -379,39 +582,7 @@ export function ClientMessagesPage() {
     loadMessages();
   }, [selectedId]);
 
-  // WebSocket for real-time messages
-  useMessageSocket<SocketMessage>((socketMessage) => {
-    // Convert socket message to full Message type
-    const newMessage: Message = {
-      id: socketMessage.id,
-      appointmentId: socketMessage.appointmentId,
-      senderId: socketMessage.senderId,
-      content: socketMessage.content,
-      read: false,
-      readAt: null,
-      flagged: false,
-      flagReason: null,
-      createdAt: socketMessage.createdAt,
-    };
-
-    if (newMessage.appointmentId === selectedId) {
-      setMessages((prev) => [...prev, newMessage]);
-    }
-    // Update conversation list
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.appointmentId === newMessage.appointmentId
-          ? {
-              ...conv,
-              lastMessage: newMessage,
-              unreadCount: conv.appointmentId === selectedId ? 0 : conv.unreadCount + 1,
-            }
-          : conv
-      )
-    );
-  });
-
-  // Send message
+  // Send message - avec normalisation de la date
   const handleSend = async (content: string) => {
     if (!selectedId) return;
 
@@ -421,34 +592,68 @@ export function ClientMessagesPage() {
         appointmentId: selectedId,
         content,
       });
-      setMessages((prev) => [...prev, newMessage]);
-      // Update last message in conversation
+
+      // Normaliser createdAt en string ISO
+      const normalizedMessage: Message = {
+        ...newMessage,
+        createdAt: normalizeDateToISO(newMessage.createdAt),
+      };
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === normalizedMessage.id)) return prev;
+        return [...prev, normalizedMessage];
+      });
+
       setConversations((prev) =>
         prev.map((conv) =>
-          conv.appointmentId === selectedId
-            ? { ...conv, lastMessage: newMessage }
+          conv.appointment.id === selectedId
+            ? { ...conv, lastMessage: normalizedMessage }
             : conv
         )
       );
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error("Failed to send message:", error);
+      showError(getErrorMessage(error));
     } finally {
       setIsSending(false);
     }
   };
 
-  const selectedConversation = conversations.find((c) => c.appointmentId === selectedId);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadConversations();
+    setIsRefreshing(false);
+  };
+
+  const selectedConversation = conversations.find(
+    (c) => c.appointment.id === selectedId
+  );
 
   return (
     <div className="h-[calc(100vh-8rem)]">
-      <Card className="h-full overflow-hidden">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Messages</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw
+            className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")}
+          />
+          Actualiser
+        </Button>
+      </div>
+
+      <Card className="h-[calc(100%-3rem)] overflow-hidden">
         <CardContent className="p-0 h-full">
           <div className="flex h-full">
             {/* Conversation list */}
             <div
               className={cn(
-                'w-full md:w-80 lg:w-96 border-r flex-shrink-0',
-                selectedId && 'hidden md:block'
+                "w-full md:w-80 lg:w-96 border-r flex-shrink-0",
+                selectedId && "hidden md:block"
               )}
             >
               <ConversationList
@@ -462,7 +667,7 @@ export function ClientMessagesPage() {
             </div>
 
             {/* Message thread */}
-            <div className={cn('flex-1', !selectedId && 'hidden md:flex')}>
+            <div className={cn("flex-1", !selectedId && "hidden md:flex")}>
               {selectedId ? (
                 isLoadingMessages ? (
                   <div className="flex items-center justify-center h-full">
@@ -481,7 +686,7 @@ export function ClientMessagesPage() {
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <EmptyState
-                    icon={MessageSquare}
+                    icon={<MessageSquare className="h-12 w-12" />}
                     title="Sélectionnez une conversation"
                     description="Choisissez une conversation pour voir les messages"
                   />

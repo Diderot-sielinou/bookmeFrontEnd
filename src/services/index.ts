@@ -79,9 +79,12 @@ export {
 // Messages service
 export {
   getConversations,
+  getUnreadCount,
   getMessagesByAppointment,
   sendMessage,
-  markMessagesAsRead,
+  markAsRead,
+  markMessagesAsRead,  // ✅ S'assurer que c'est exporté
+  flagMessage,
 } from './messages.service';
 
 // Notifications service
@@ -98,20 +101,17 @@ export {
   updateClientProfileService,
 } from './clients.service';
 
-// Dashboard service
-export {
-  getClientDashboard,
-  getPrestataireDashboard,
-  getAdminDashboard,
-} from './dashboard.service';
-
-// Upload service
+// Upload service - ✅ EXPORTS CORRIGÉS
 export {
   uploadAvatar,
   uploadPortfolioImage,
-  uploadDocument,
+  uploadPortfolioImages,
+  uploadServiceImage,
   deleteFile,
+  validateFile,
+  getOptimizedImageUrl,
 } from './upload.service';
+
 
 // Create grouped service objects for convenience
 import * as appointmentsFns from './appointments.service';
@@ -174,15 +174,14 @@ export const clientsService = {
   updateProfile: clientsFns.updateClientProfileService,
 };
 
-export const dashboardService = {
-  getClientDashboard: dashboardFns.getClientDashboard,
-  getPrestataireDashboard: dashboardFns.getPrestataireDashboard,
-  getAdminDashboard: dashboardFns.getAdminDashboard,
-};
+
 
 export const uploadService = {
   uploadAvatar: uploadFns.uploadAvatar,
   uploadPortfolioImage: uploadFns.uploadPortfolioImage,
-  uploadDocument: uploadFns.uploadDocument,
+  uploadPortfolioImages: uploadFns.uploadPortfolioImages,
+  uploadServiceImage: uploadFns.uploadServiceImage,
   deleteFile: uploadFns.deleteFile,
+  validateFile: uploadFns.validateFile,
+  getOptimizedImageUrl: uploadFns.getOptimizedImageUrl,
 };

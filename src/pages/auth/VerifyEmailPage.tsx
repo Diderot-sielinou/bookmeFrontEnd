@@ -61,7 +61,7 @@ export default function VerifyEmailPage() {
 
     try {
       setResendLoading(true);
-      await resendVerificationEmail();
+      await resendVerificationEmail(user.email);
       setResendSuccess(true);
     } catch (err) {
       // Ignorer les erreurs silencieusement

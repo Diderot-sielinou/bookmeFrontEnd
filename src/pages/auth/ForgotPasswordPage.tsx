@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { forgotPassword } from '@/services/auth.service';
 import { ROUTES } from '@/lib/constants';
+import type { ForgotPasswordDto } from '@/types';
 
 // ==========================================
 // SCHEMA
@@ -48,7 +49,7 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     try {
       setError(null);
-      await forgotPassword(data.email);
+      await forgotPassword(data.email as unknown as ForgotPasswordDto);
       setIsSubmitted(true);
     } catch (err) {
       // On affiche toujours un message de succès pour éviter l'énumération des emails

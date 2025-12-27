@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { resetPassword } from '@/services/auth.service';
 import { ROUTES } from '@/lib/constants';
+import type { ResetPasswordDto } from '@/types';
 
 // ==========================================
 // SCHEMA
@@ -72,7 +73,7 @@ export default function ResetPasswordPage() {
 
     try {
       setError(null);
-      await resetPassword(token, data.password);
+      await resetPassword(token, data.password as unknown as ResetPasswordDto);
       setIsSuccess(true);
       
       // Rediriger vers la page de connexion après 3 secondes

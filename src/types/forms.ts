@@ -217,7 +217,6 @@ export interface BlockSlotsDto {
  * Réservation d'un rendez-vous
  */
 export interface BookAppointmentDto {
-  prestataireId?: string;  // Optional, inferred from slot
   slotId: string;
   serviceId: string;
   clientNote?: string;

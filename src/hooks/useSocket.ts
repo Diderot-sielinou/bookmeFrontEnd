@@ -2,22 +2,54 @@
  * Hook useSocket
  * 
  * Gère la connexion WebSocket et les événements temps réel.
- * S'abonne aux notifications et met à jour le store.
+ * S'abonne aux notifications et messages et met à jour les stores.
+ * ALIGNÉ AVEC LE BACKEND
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 
 import {
   connectSocket,
   disconnectSocket,
   subscribeToNotifications,
   subscribeToNewMessages,
+  subscribeToMessageNotifications,
+  subscribeToMessagesRead,
+  joinAppointmentRoom,
+  leaveAppointmentRoom,
   isSocketConnected,
   type NotificationPayload,
 } from '@/lib/socket';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useAuthStore } from '@/stores/authStore';
 import { showInfo } from '@/components/ui/toast';
+import { NotificationType } from '@/types';
+
+// ==========================================
+// TYPES
+// ==========================================
+
+export interface SocketMessage {
+  id: string;
+  appointmentId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface MessageNotification {
+  appointmentId: string;
+  preview: string;
+}
+
+export interface MessagesReadEvent {
+  appointmentId: string;
+  readBy: string;
+}
+
+// ==========================================
+// MAIN SOCKET HOOK
+// ==========================================
 
 /**
  * Hook principal pour les WebSockets
@@ -37,8 +69,8 @@ export function useSocket() {
       // Ajouter au store
       addNotification({
         id: notification.id,
-        userId: '', // Rempli par le serveur
-        type: notification.type as never,
+        userId: '',
+        type: notification.type as NotificationType,
         title: notification.title,
         message: notification.message,
         relatedId: notification.relatedId || null,
@@ -64,7 +96,7 @@ export function useSocket() {
     }
 
     return () => {
-      // Cleanup à la déconnexion
+      // Cleanup handled by disconnectSocket
     };
   }, [isAuthenticated]);
 
@@ -72,7 +104,6 @@ export function useSocket() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // S'abonner aux notifications générales
     const unsubscribeNotifications = subscribeToNotifications(handleNotification);
 
     return () => {
@@ -85,26 +116,87 @@ export function useSocket() {
   };
 }
 
+// ==========================================
+// MESSAGE SOCKET HOOKS
+// ==========================================
+
 /**
- * Hook pour les notifications de messages
+ * Hook pour les messages en temps réel dans une conversation
  * 
- * S'abonne spécifiquement aux nouveaux messages
- * pour mettre à jour l'interface de chat.
+ * S'abonne à une room d'appointment pour recevoir les messages
  */
-export function useMessageSocket<T = NotificationPayload>(
-  onNewMessage?: (message: T) => void
+export function useMessageSocket(
+  appointmentId: string | null,
+  callbacks: {
+    onNewMessage?: (message: SocketMessage) => void;
+    onMessagesRead?: (event: MessagesReadEvent) => void;
+  }
 ) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { onNewMessage, onMessagesRead } = callbacks;
 
+  // Rejoindre/quitter la room d'appointment
+  useEffect(() => {
+    if (!isAuthenticated || !appointmentId) return;
+
+    joinAppointmentRoom(appointmentId);
+
+    return () => {
+      leaveAppointmentRoom(appointmentId);
+    };
+  }, [isAuthenticated, appointmentId]);
+
+  // S'abonner aux nouveaux messages
   useEffect(() => {
     if (!isAuthenticated || !onNewMessage) return;
 
-    const unsubscribe = subscribeToNewMessages(onNewMessage as (data: NotificationPayload) => void);
+    const unsubscribe = subscribeToNewMessages((message: SocketMessage) => {
+      // Filtrer pour l'appointment courant si spécifié
+      if (!appointmentId || message.appointmentId === appointmentId) {
+        onNewMessage(message);
+      }
+    });
 
     return () => {
       unsubscribe();
     };
-  }, [isAuthenticated, onNewMessage]);
+  }, [isAuthenticated, appointmentId, onNewMessage]);
+
+  // S'abonner aux événements de lecture
+  useEffect(() => {
+    if (!isAuthenticated || !onMessagesRead) return;
+
+    const unsubscribe = subscribeToMessagesRead((event: MessagesReadEvent) => {
+      if (!appointmentId || event.appointmentId === appointmentId) {
+        onMessagesRead(event);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAuthenticated, appointmentId, onMessagesRead]);
+}
+
+/**
+ * Hook pour les notifications de messages (préview)
+ * 
+ * Utilisé pour mettre à jour la liste des conversations
+ */
+export function useMessageNotifications(
+  onNotification?: (notification: MessageNotification) => void
+) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  useEffect(() => {
+    if (!isAuthenticated || !onNotification) return;
+
+    const unsubscribe = subscribeToMessageNotifications(onNotification);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAuthenticated, onNotification]);
 }
 
 /**

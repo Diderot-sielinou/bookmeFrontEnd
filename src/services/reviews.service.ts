@@ -43,13 +43,15 @@ export const getReviewsByPrestataire = async (
 /**
  * Récupère les statistiques des avis d'un prestataire
  */
+
 export const getReviewStats = async (prestataireId: string): Promise<{
   averageRating: number;
   totalReviews: number;
   averageQuality: number | null;
   averagePunctuality: number | null;
   averageCleanliness: number | null;
-  distribution: Array<{ rating: number; count: number; percentage: number }>;
+  // ✅ Accepter les deux formats
+  distribution: Record<number, number> | Array<{ rating: number; count: number; percentage: number }>;
 }> => {
   const response = await api.get<{
     data: {
@@ -58,7 +60,7 @@ export const getReviewStats = async (prestataireId: string): Promise<{
       averageQuality: number | null;
       averagePunctuality: number | null;
       averageCleanliness: number | null;
-      distribution: Array<{ rating: number; count: number; percentage: number }>;
+      distribution: Record<number, number> | Array<{ rating: number; count: number; percentage: number }>;
     };
   }>(`/reviews/prestataire/${prestataireId}/stats`);
   return response.data.data;

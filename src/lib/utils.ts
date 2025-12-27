@@ -166,17 +166,7 @@ export function formatPriceRange(min: number | null, max: number | null): string
 // FORMATAGE DES NOTES
 // ==========================================
 
-/**
- * Formate une note avec une décimale
- * 
- * @example
- * formatRating(4.5) // '4.5'
- * formatRating(4.0) // '4.0'
- */
-export function formatRating(rating: number | null | undefined): string {
-  if (rating === null || rating === undefined) return '-';
-  return rating.toFixed(1);
-}
+
 
 // ==========================================
 // FORMATAGE DES NOMS
@@ -379,3 +369,25 @@ export function translateStatus(status: string): string {
   
   return translations[status] || status;
 }
+
+// src/lib/utils.ts - Ajouter cette fonction
+
+/**
+ * Convertit une valeur en nombre de manière sécurisée
+ * Retourne 0 si la conversion échoue
+ */
+export const toNumber = (value: unknown, fallback = 0): number => {
+  if (typeof value === 'number' && !isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? fallback : parsed;
+  }
+  return fallback;
+};
+
+/**
+ * Formate un nombre avec un nombre fixe de décimales
+ */
+export const formatRating = (value: unknown): string => {
+  return toNumber(value, 0).toFixed(1);
+};

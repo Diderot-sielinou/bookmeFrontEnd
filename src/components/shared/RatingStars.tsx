@@ -2,10 +2,6 @@
  * Composant RatingStars
  * 
  * Affichage et sélection de notes avec étoiles.
- * 
- * Modes :
- * - display: Affichage seul (lecture)
- * - interactive: Sélection au clic
  */
 
 import { useState } from 'react';
@@ -19,7 +15,7 @@ import { cn } from '@/lib/utils';
 
 interface RatingStarsProps {
   /** Note actuelle (1-5) */
-  value: number;
+  value: number | null | undefined;
   /** Callback quand la note change (mode interactif) */
   onChange?: (value: number) => void;
   /** Taille des étoiles */
@@ -59,8 +55,11 @@ export function RatingStars({
 }: RatingStarsProps) {
   const [hoverValue, setHoverValue] = useState<number | null>(null);
   
+  // ✅ Sécurisation de la valeur - gère null, undefined, NaN, strings
+  const safeValue = Math.max(0, Math.min(5, Number(value) || 0));
+  
   const isInteractive = !!onChange && !disabled;
-  const displayValue = hoverValue ?? value;
+  const displayValue = hoverValue ?? safeValue;
   const config = sizeConfig[size];
 
   // Gérer le clic sur une étoile
@@ -112,10 +111,10 @@ export function RatingStars({
         {[0, 1, 2, 3, 4].map(renderStar)}
       </div>
 
-      {/* Valeur numérique */}
+      {/* Valeur numérique - utilise safeValue */}
       {showValue && (
         <span className={cn('font-medium text-foreground ml-1', config.text)}>
-          {value.toFixed(1)}
+          {safeValue.toFixed(1)}
         </span>
       )}
 
@@ -134,18 +133,15 @@ export function RatingStars({
 // ==========================================
 
 interface RatingBadgeProps {
-  value: number;
+  value: number | null | undefined;
   totalReviews?: number;
   className?: string;
 }
 
-/**
- * Badge compact avec note et étoile
- * 
- * @example
- * <RatingBadge value={4.5} totalReviews={128} />
- */
 export function RatingBadge({ value, totalReviews, className }: RatingBadgeProps) {
+  // ✅ Sécurisation ici aussi
+  const safeValue = Math.max(0, Math.min(5, Number(value) || 0));
+  
   return (
     <div
       className={cn(
@@ -154,7 +150,7 @@ export function RatingBadge({ value, totalReviews, className }: RatingBadgeProps
       )}
     >
       <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-      <span className="font-medium text-sm">{value.toFixed(1)}</span>
+      <span className="font-medium text-sm">{safeValue.toFixed(1)}</span>
       {totalReviews !== undefined && (
         <span className="text-xs text-amber-600">({totalReviews})</span>
       )}

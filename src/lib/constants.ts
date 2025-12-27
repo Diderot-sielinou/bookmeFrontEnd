@@ -204,6 +204,7 @@ export const ROUTES = {
   PRESTATAIRE_APPOINTMENT_DETAIL: '/prestataire/appointments/:id',
   PRESTATAIRE_REVIEWS: '/prestataire/reviews',
   PRESTATAIRE_MESSAGES: '/prestataire/messages',
+  PRESTATAIRE_NOTIFICATION: '/prestataire/notifications',
   PRESTATAIRE_SETTINGS: '/prestataire/settings',
   
   // Admin

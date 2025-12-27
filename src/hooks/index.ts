@@ -8,3 +8,5 @@ export * from './useAppointments';
 export * from './usePrestataires';
 export * from './useSlots';
 export * from './useNotifications';
+export * from './useMessages';
+

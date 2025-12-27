@@ -12,12 +12,16 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Proxy uniquement pour le développement local
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
   },
 })

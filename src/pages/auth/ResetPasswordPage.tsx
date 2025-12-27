@@ -1,41 +1,57 @@
 /**
  * ResetPasswordPage
- * 
+ *
  * Page de réinitialisation du mot de passe.
  * L'utilisateur accède à cette page via le lien envoyé par email.
  */
 
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { KeyRound, ArrowLeft, CheckCircle, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  KeyRound,
+  ArrowLeft,
+  CheckCircle,
+  Loader2,
+  Eye,
+  EyeOff,
+  AlertCircle,
+} from "lucide-react";
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { resetPassword } from '@/services/auth.service';
-import { ROUTES } from '@/lib/constants';
-import type { ResetPasswordDto } from '@/types';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { resetPassword } from "@/services/auth.service";
+import { ROUTES } from "@/lib/constants";
+import type { ResetPasswordDto } from "@/types";
 
 // ==========================================
 // SCHEMA
 // ==========================================
 
-const resetPasswordSchema = z.object({
-  password: z
-    .string()
-    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
-    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
-    .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
-    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Les mots de passe ne correspondent pas',
-  path: ['confirmPassword'],
-});
+const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+      .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une majuscule")
+      .regex(/[a-z]/, "Le mot de passe doit contenir au moins une minuscule")
+      .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Les mots de passe ne correspondent pas",
+    path: ["confirmPassword"],
+  });
 
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
@@ -46,7 +62,7 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +80,7 @@ export default function ResetPasswordPage() {
   // Vérifier si le token est présent
   useEffect(() => {
     if (!token) {
-      setError('Lien de réinitialisation invalide ou expiré.');
+      setError("Lien de réinitialisation invalide ou expiré.");
     }
   }, [token]);
 
@@ -73,15 +89,18 @@ export default function ResetPasswordPage() {
 
     try {
       setError(null);
-      await resetPassword(token, data.password as unknown as ResetPasswordDto);
+      await resetPassword(token,{ token, password: data.password });
       setIsSuccess(true);
-      
+
       // Rediriger vers la page de connexion après 3 secondes
       setTimeout(() => {
         navigate(ROUTES.LOGIN);
       }, 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Une erreur est survenue. Le lien est peut-être expiré.');
+      setError(
+        err.response?.data?.message ||
+          "Une erreur est survenue. Le lien est peut-être expiré."
+      );
     }
   };
 
@@ -103,9 +122,7 @@ export default function ResetPasswordPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button asChild className="w-full">
-            <Link to={ROUTES.FORGOT_PASSWORD}>
-              Demander un nouveau lien
-            </Link>
+            <Link to={ROUTES.FORGOT_PASSWORD}>Demander un nouveau lien</Link>
           </Button>
           <Button asChild variant="outline" className="w-full">
             <Link to={ROUTES.LOGIN}>
@@ -131,14 +148,13 @@ export default function ResetPasswordPage() {
           </div>
           <CardTitle>Mot de passe modifié !</CardTitle>
           <CardDescription>
-            Votre mot de passe a été réinitialisé avec succès. Vous allez être redirigé vers la page de connexion.
+            Votre mot de passe a été réinitialisé avec succès. Vous allez être
+            redirigé vers la page de connexion.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link to={ROUTES.LOGIN}>
-              Se connecter
-            </Link>
+            <Link to={ROUTES.LOGIN}>Se connecter</Link>
           </Button>
         </CardContent>
       </Card>
@@ -173,9 +189,9 @@ export default function ResetPasswordPage() {
             <div className="relative">
               <Input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                {...register('password')}
+                {...register("password")}
                 disabled={isSubmitting}
               />
               <Button
@@ -193,7 +209,9 @@ export default function ResetPasswordPage() {
               </Button>
             </div>
             {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.password.message}
+              </p>
             )}
           </div>
 
@@ -202,9 +220,9 @@ export default function ResetPasswordPage() {
             <div className="relative">
               <Input
                 id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
-                {...register('confirmPassword')}
+                {...register("confirmPassword")}
                 disabled={isSubmitting}
               />
               <Button
@@ -222,7 +240,9 @@ export default function ResetPasswordPage() {
               </Button>
             </div>
             {errors.confirmPassword && (
-              <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.confirmPassword.message}
+              </p>
             )}
           </div>
 
@@ -243,7 +263,7 @@ export default function ResetPasswordPage() {
                 Réinitialisation...
               </>
             ) : (
-              'Réinitialiser le mot de passe'
+              "Réinitialiser le mot de passe"
             )}
           </Button>
 

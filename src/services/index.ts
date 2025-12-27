@@ -1,10 +1,12 @@
 /**
  * Export centralisé des services API
+ * 
+ * ALIGNÉ AVEC BACKEND - Mis à jour pour BookMe Admin
  */
 
 // Grouped service exports
-export { authService } from './auth.service';
-export { prestatairesService, servicesService } from './prestataires.service';
+export { authService } from "./auth.service";
+export { prestatairesService, servicesService } from "./prestataires.service";
 
 // Individual function exports from auth
 export {
@@ -21,7 +23,7 @@ export {
   getMe,
   updateClientProfile,
   updatePrestataireProfile,
-} from './auth.service';
+} from "./auth.service";
 
 // Individual function exports from prestataires
 export {
@@ -40,7 +42,7 @@ export {
   reorderServices,
   getPrestataireBadges,
   getMyBadges,
-} from './prestataires.service';
+} from "./prestataires.service";
 
 // Appointments service
 export {
@@ -48,11 +50,8 @@ export {
   getAppointmentById,
   bookAppointment,
   cancelAppointment,
-  // confirmAppointment,
   completeAppointment,
-  // markNoShow,
-  // getPrestataireAppointments,
-} from './appointments.service';
+} from "./appointments.service";
 
 // Slots service
 export {
@@ -64,7 +63,7 @@ export {
   deleteSlot,
   blockSlots as blockSlot,
   unblockSlot,
-} from './slots.service';
+} from "./slots.service";
 
 // Reviews service
 export {
@@ -74,7 +73,7 @@ export {
   getMyReviews,
   getPrestataireReviewsService,
   respondToReview,
-} from './reviews.service';
+} from "./reviews.service";
 
 // Messages service
 export {
@@ -83,9 +82,9 @@ export {
   getMessagesByAppointment,
   sendMessage,
   markAsRead,
-  markMessagesAsRead,  // ✅ S'assurer que c'est exporté
+  markMessagesAsRead,
   flagMessage,
-} from './messages.service';
+} from "./messages.service";
 
 // Notifications service
 export {
@@ -93,15 +92,18 @@ export {
   markNotificationAsRead,
   markAllAsRead,
   deleteNotification,
-} from './notifications.service';
+} from "./notifications.service";
 
 // Clients service
 export {
+  getMyClientProfile,
   getClientProfile,
+  updateMyClientProfile,
   updateClientProfileService,
-} from './clients.service';
+  getClientById,
+} from "./clients.service";
 
-// Upload service - ✅ EXPORTS CORRIGÉS
+// Upload service
 export {
   uploadAvatar,
   uploadPortfolioImage,
@@ -110,28 +112,24 @@ export {
   deleteFile,
   validateFile,
   getOptimizedImageUrl,
-} from './upload.service';
-
+} from "./upload.service";
 
 // Create grouped service objects for convenience
-import * as appointmentsFns from './appointments.service';
-import * as slotsFns from './slots.service';
-import * as reviewsFns from './reviews.service';
-import * as messagesFns from './messages.service';
-import * as notificationsFns from './notifications.service';
-import * as clientsFns from './clients.service';
-import * as dashboardFns from './dashboard.service';
-import * as uploadFns from './upload.service';
+import * as appointmentsFns from "./appointments.service";
+import * as slotsFns from "./slots.service";
+import * as reviewsFns from "./reviews.service";
+import * as messagesFns from "./messages.service";
+import * as notificationsFns from "./notifications.service";
+import * as clientsFns from "./clients.service";
+import * as uploadFns from "./upload.service";
+import * as adminFns from "./admin.service";
 
 export const appointmentsService = {
   getMyAppointments: appointmentsFns.getMyAppointments,
   getAppointmentById: appointmentsFns.getAppointmentById,
   bookAppointment: appointmentsFns.bookAppointment,
   cancelAppointment: appointmentsFns.cancelAppointment,
-  // confirmAppointment: appointmentsFns.confirmAppointment,
   completeAppointment: appointmentsFns.completeAppointment,
-  // markNoShow: appointmentsFns.markNoShow,
-  // getPrestataireAppointments: appointmentsFns.getPrestataireAppointments,
 };
 
 export const slotsService = {
@@ -160,6 +158,7 @@ export const messagesService = {
   sendMessage: messagesFns.sendMessage,
   markAsRead: messagesFns.markMessagesAsRead,
   getUnreadCount: messagesFns.getUnreadCount,
+  flagMessage: messagesFns.flagMessage,
 };
 
 export const notificationsService = {
@@ -170,11 +169,12 @@ export const notificationsService = {
 };
 
 export const clientsService = {
+  getMyProfile: clientsFns.getMyClientProfile,
   getProfile: clientsFns.getClientProfile,
-  updateProfile: clientsFns.updateClientProfileService,
+  updateProfile: clientsFns.updateMyClientProfile,
+  updateMyProfile: clientsFns.updateMyClientProfile,
+  getById: clientsFns.getClientById,
 };
-
-
 
 export const uploadService = {
   uploadAvatar: uploadFns.uploadAvatar,
@@ -184,4 +184,75 @@ export const uploadService = {
   deleteFile: uploadFns.deleteFile,
   validateFile: uploadFns.validateFile,
   getOptimizedImageUrl: uploadFns.getOptimizedImageUrl,
+};
+
+// ==========================================
+// ADMIN SERVICE - ALIGNÉ AVEC BACKEND
+// ==========================================
+
+export {
+  getAdminStats,
+  getUsers,
+  suspendUser,
+  reactivateUser,
+  deleteUser,
+  getPendingPrestataires,
+  approvePrestataire,
+  rejectPrestataire,
+  getFlaggedReviews,
+  hideReview,
+  unflagReview,
+  approveReview,
+  deleteReview as deleteReviewAdmin,
+  warnReviewAuthor,
+  getAuditLogs,
+  // Catégories (TODO backend)
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from "./admin.service";
+
+export type {
+  AdminStats,
+  UsersFilters,
+  AuditLogsFilters,
+  AuditLog,
+  PendingPrestataire,
+  FlaggedReview,
+  AdminUser,
+  Category,
+} from "./admin.service";
+
+export const adminService = {
+  // Statistiques
+  getStats: adminFns.getAdminStats,
+
+  // Utilisateurs
+  getUsers: adminFns.getUsers,
+  suspendUser: adminFns.suspendUser,
+  reactivateUser: adminFns.reactivateUser,
+  deleteUser: adminFns.deleteUser,
+
+  // Prestataires
+  getPendingPrestataires: adminFns.getPendingPrestataires,
+  approvePrestataire: adminFns.approvePrestataire,
+  rejectPrestataire: adminFns.rejectPrestataire,
+
+  // Avis
+  getFlaggedReviews: adminFns.getFlaggedReviews,
+  hideReview: adminFns.hideReview,
+  unflagReview: adminFns.unflagReview,
+  approveReview: adminFns.approveReview,
+  deleteReview: adminFns.deleteReview,
+  warnReviewAuthor: adminFns.warnReviewAuthor,
+
+  // Logs
+  getAuditLogs: adminFns.getAuditLogs,
+
+  // Catégories (TODO: à implémenter côté backend)
+  getCategories: adminFns.getCategories,
+  createCategory: adminFns.createCategory,
+  updateCategory: adminFns.updateCategory,
+  deleteCategory: adminFns.deleteCategory,
 };

@@ -3,9 +3,19 @@
  * 
  * Page de gestion des catégories de services.
  * Permet de créer, modifier et supprimer des catégories.
+ * 
+ * ⚠️ STATUT BACKEND: NON IMPLÉMENTÉ
+ * Les endpoints suivants doivent être créés:
+ * - GET /admin/categories
+ * - POST /admin/categories
+ * - PATCH /admin/categories/:id
+ * - DELETE /admin/categories/:id
+ * - PATCH /admin/categories/reorder
+ * 
+ * Pour l'instant, cette page affiche un message d'attente.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FolderTree,
   Plus,
@@ -17,10 +27,8 @@ import {
   ChevronRight,
   ChevronDown,
   Loader2,
-  Image,
-  Eye,
-  EyeOff,
   AlertTriangle,
+  Construction,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -62,11 +70,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+// import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+import { showSuccess, showError } from '@/components/ui/toast';
 
 // ==========================================
-// TYPES
+// TYPES - À aligner avec le backend quand implémenté
 // ==========================================
 
 interface Category {
@@ -83,7 +93,28 @@ interface Category {
 }
 
 // ==========================================
-// MOCK DATA
+// BACKEND NOT IMPLEMENTED BANNER
+// ==========================================
+
+// function BackendNotImplementedBanner() {
+//   return (
+//     <Alert variant="destructive" className="mb-6">
+//       <Construction className="h-4 w-4" />
+//       <AlertTitle>Fonctionnalité en développement</AlertTitle>
+//       <AlertDescription>
+//         L'API backend pour la gestion des catégories n'est pas encore implémentée.
+//         Les données affichées sont des données de démonstration.
+//         <br />
+//         <span className="text-xs mt-2 block">
+//           Endpoints requis: GET/POST/PATCH/DELETE /admin/categories
+//         </span>
+//       </AlertDescription>
+//     </Alert>
+//   );
+// }
+
+// ==========================================
+// MOCK DATA - À remplacer par l'API quand disponible
 // ==========================================
 
 const mockCategories: Category[] = [
@@ -155,6 +186,7 @@ interface CategoryRowProps {
   onEdit: (category: Category) => void;
   onDelete: (category: Category) => void;
   onToggleActive: (category: Category) => void;
+  disabled?: boolean;
 }
 
 function CategoryRow({
@@ -165,6 +197,7 @@ function CategoryRow({
   onEdit,
   onDelete,
   onToggleActive,
+  disabled = false,
 }: CategoryRowProps) {
   const hasChildren = category.children && category.children.length > 0;
 
@@ -172,7 +205,7 @@ function CategoryRow({
     <div
       className={`flex items-center gap-3 p-3 hover:bg-muted/50 border-b ${
         level > 0 ? 'pl-10 bg-muted/20' : ''
-      }`}
+      } ${disabled ? 'opacity-60' : ''}`}
     >
       {/* Drag Handle */}
       <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
@@ -183,7 +216,7 @@ function CategoryRow({
         size="sm"
         className="h-6 w-6 p-0"
         onClick={onToggle}
-        disabled={!hasChildren}
+        disabled={!hasChildren || disabled}
       >
         {hasChildren ? (
           isExpanded ? (
@@ -221,21 +254,22 @@ function CategoryRow({
       <Switch
         checked={category.isActive}
         onCheckedChange={() => onToggleActive(category)}
+        disabled={disabled}
       />
 
       {/* Actions */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={disabled}>
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onEdit(category)}>
+          <DropdownMenuItem onClick={() => onEdit(category)} disabled={disabled}>
             <Edit className="h-4 w-4 mr-2" />
             Modifier
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem disabled={disabled}>
             <Plus className="h-4 w-4 mr-2" />
             Ajouter sous-catégorie
           </DropdownMenuItem>
@@ -243,7 +277,7 @@ function CategoryRow({
           <DropdownMenuItem
             onClick={() => onDelete(category)}
             className="text-destructive"
-            disabled={category.prestatairesCount > 0}
+            disabled={category.prestatairesCount > 0 || disabled}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Supprimer
@@ -259,8 +293,9 @@ function CategoryRow({
 // ==========================================
 
 export default function CategoriesPage() {
-  const [categories] = useState<Category[]>(mockCategories);
-  const [isLoading] = useState(false);
+  // État local avec mock data (en attendant le backend)
+  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['1', '2']));
 
@@ -280,6 +315,9 @@ export default function CategoriesPage() {
     isActive: true,
   });
   const [formLoading, setFormLoading] = useState(false);
+
+  // Flag pour indiquer que le backend n'est pas prêt
+  const isBackendReady = false;
 
   // Toggle expand
   const toggleExpand = (id: string) => {
@@ -305,6 +343,10 @@ export default function CategoriesPage() {
 
   // Handlers
   const handleEdit = (category: Category) => {
+    if (!isBackendReady) {
+      showError('Fonctionnalité non disponible', 'L\'API backend n\'est pas encore implémentée.');
+      return;
+    }
     setSelectedCategory(category);
     setFormData({
       name: category.name,
@@ -319,6 +361,10 @@ export default function CategoriesPage() {
   };
 
   const handleCreate = () => {
+    if (!isBackendReady) {
+      showError('Fonctionnalité non disponible', 'L\'API backend n\'est pas encore implémentée.');
+      return;
+    }
     setSelectedCategory(null);
     setFormData({
       name: '',
@@ -333,26 +379,38 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = (category: Category) => {
+    if (!isBackendReady) {
+      showError('Fonctionnalité non disponible', 'L\'API backend n\'est pas encore implémentée.');
+      return;
+    }
     setSelectedCategory(category);
     setDeleteDialogOpen(true);
   };
 
   const handleToggleActive = async (category: Category) => {
-    // API call would go here
+    if (!isBackendReady) {
+      showError('Fonctionnalité non disponible', 'L\'API backend n\'est pas encore implémentée.');
+      return;
+    }
+    // TODO: Appeler l'API backend
     console.log('Toggle active:', category.id);
   };
 
   const handleSave = async () => {
+    if (!isBackendReady) {
+      showError('Fonctionnalité non disponible', 'L\'API backend n\'est pas encore implémentée.');
+      return;
+    }
     setFormLoading(true);
-    // API call would go here
+    // TODO: Appeler l'API backend
     await new Promise((r) => setTimeout(r, 1000));
     setFormLoading(false);
     setEditDialogOpen(false);
   };
 
   const confirmDelete = async () => {
-    if (!selectedCategory) return;
-    // API call would go here
+    if (!selectedCategory || !isBackendReady) return;
+    // TODO: Appeler l'API backend
     setDeleteDialogOpen(false);
     setSelectedCategory(null);
   };
@@ -380,15 +438,19 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Backend Not Implemented Banner */}
+      {/* <BackendNotImplementedBanner /> */}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Catégories</h1>
           <p className="text-muted-foreground">
             {totalCategories} catégories • {activeCategories} actives
+            <span className="text-xs ml-2">(données de démonstration)</span>
           </p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} disabled={!isBackendReady}>
           <Plus className="h-4 w-4 mr-2" />
           Nouvelle catégorie
         </Button>
@@ -418,6 +480,9 @@ export default function CategoriesPage() {
           </CardTitle>
           <CardDescription>
             Glissez-déposez pour réorganiser les catégories
+            {!isBackendReady && (
+              <span className="text-amber-600 ml-2">(lecture seule)</span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -428,7 +493,7 @@ export default function CategoriesPage() {
                 title="Aucune catégorie"
                 description="Créez votre première catégorie pour commencer."
                 action={
-                  <Button onClick={handleCreate}>
+                  <Button onClick={handleCreate} disabled={!isBackendReady}>
                     <Plus className="h-4 w-4 mr-2" />
                     Créer une catégorie
                   </Button>
@@ -447,6 +512,7 @@ export default function CategoriesPage() {
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onToggleActive={handleToggleActive}
+                    disabled={!isBackendReady}
                   />
                   {expandedCategories.has(category.id) &&
                     category.children?.map((child) => (
@@ -459,6 +525,7 @@ export default function CategoriesPage() {
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         onToggleActive={handleToggleActive}
+                        disabled={!isBackendReady}
                       />
                     ))}
                 </div>
@@ -566,7 +633,7 @@ export default function CategoriesPage() {
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleSave} disabled={!formData.name || formLoading}>
+            <Button onClick={handleSave} disabled={!formData.name || formLoading || !isBackendReady}>
               {formLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -606,8 +673,9 @@ export default function CategoriesPage() {
             <AlertDialogAction
               onClick={confirmDelete}
               disabled={
-                selectedCategory?.prestatairesCount !== undefined &&
-                selectedCategory.prestatairesCount > 0
+                (selectedCategory?.prestatairesCount !== undefined &&
+                selectedCategory.prestatairesCount > 0) ||
+                !isBackendReady
               }
               className="bg-destructive text-destructive-foreground"
             >

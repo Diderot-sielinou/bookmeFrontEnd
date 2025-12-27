@@ -3,15 +3,16 @@
  * 
  * Page de consultation des logs d'audit.
  * Permet de suivre toutes les actions importantes sur la plateforme.
+ * 
+ * ALIGNÉ AVEC BACKEND: /admin/audit-logs
  */
 
-import { useState } from 'react';
-import { format, subDays, subHours } from 'date-fns';
+import { useState, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   FileText,
   Search,
-  Filter,
   Download,
   RefreshCw,
   User,
@@ -21,7 +22,6 @@ import {
   Shield,
   Settings,
   LogIn,
-  LogOut,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -33,9 +33,9 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -63,138 +63,34 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+import { adminService, type AuditLog } from '@/services';
+import { showError } from '@/components/ui/toast';
 
 // ==========================================
-// TYPES
+// TYPES - Extended for UI
 // ==========================================
 
 type LogLevel = 'info' | 'warning' | 'error' | 'success';
-type LogCategory = 'auth' | 'user' | 'prestataire' | 'appointment' | 'review' | 'admin' | 'system';
 
-interface AuditLog {
-  id: string;
-  timestamp: string;
-  level: LogLevel;
-  category: LogCategory;
-  action: string;
-  description: string;
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
+// Helper to determine log level from action
+const getLogLevel = (action: string): LogLevel => {
+  if (action.includes('FAILED') || action.includes('ERROR')) return 'error';
+  if (action.includes('FLAGGED') || action.includes('WARNING') || action.includes('SUSPENDED')) return 'warning';
+  if (action.includes('APPROVED') || action.includes('COMPLETED') || action.includes('LOGIN')) return 'success';
+  return 'info';
+};
+
+// Helper to determine category from entityType
+const getCategory = (entityType: string): string => {
+  const map: Record<string, string> = {
+    'User': 'user',
+    'Prestataire': 'prestataire',
+    'Appointment': 'appointment',
+    'Review': 'review',
+    'Auth': 'auth',
   };
-  metadata?: Record<string, any>;
-  ip?: string;
-  userAgent?: string;
-}
-
-// ==========================================
-// MOCK DATA
-// ==========================================
-
-const mockLogs: AuditLog[] = [
-  {
-    id: '1',
-    timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    level: 'success',
-    category: 'auth',
-    action: 'USER_LOGIN',
-    description: 'Connexion réussie',
-    user: { id: '1', name: 'Sophie Martin', email: 'sophie@email.com', role: 'CLIENT' },
-    ip: '192.168.1.100',
-    userAgent: 'Chrome/120.0.0.0',
-  },
-  {
-    id: '2',
-    timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    level: 'info',
-    category: 'admin',
-    action: 'PRESTATAIRE_VALIDATED',
-    description: 'Prestataire validé: Pierre Coiffure',
-    user: { id: 'admin1', name: 'Admin System', email: 'admin@bookme.com', role: 'ADMIN' },
-    metadata: { prestataireId: 'p123', prestataireName: 'Pierre Coiffure' },
-  },
-  {
-    id: '3',
-    timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    level: 'warning',
-    category: 'review',
-    action: 'REVIEW_FLAGGED',
-    description: 'Avis signalé pour contenu inapproprié',
-    user: { id: '2', name: 'Marc Bernard', email: 'marc@email.com', role: 'CLIENT' },
-    metadata: { reviewId: 'r456', reason: 'Contenu inapproprié' },
-  },
-  {
-    id: '4',
-    timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    level: 'success',
-    category: 'appointment',
-    action: 'APPOINTMENT_CREATED',
-    description: 'Nouveau rendez-vous créé',
-    user: { id: '3', name: 'Julie Petit', email: 'julie@email.com', role: 'CLIENT' },
-    metadata: { appointmentId: 'a789', service: 'Coupe femme', prestataire: 'Marie Coiffure' },
-  },
-  {
-    id: '5',
-    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    level: 'error',
-    category: 'auth',
-    action: 'LOGIN_FAILED',
-    description: 'Échec de connexion - mot de passe incorrect',
-    metadata: { email: 'unknown@email.com', attempts: 3 },
-    ip: '192.168.1.50',
-  },
-  {
-    id: '6',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    level: 'info',
-    category: 'user',
-    action: 'USER_REGISTERED',
-    description: 'Nouvel utilisateur inscrit',
-    user: { id: '4', name: 'Emma Leroy', email: 'emma@email.com', role: 'CLIENT' },
-  },
-  {
-    id: '7',
-    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    level: 'info',
-    category: 'prestataire',
-    action: 'SERVICE_CREATED',
-    description: 'Nouveau service créé: Massage relaxant',
-    user: { id: 'p1', name: 'Spa Zen', email: 'spa@email.com', role: 'PRESTATAIRE' },
-    metadata: { serviceId: 's123', serviceName: 'Massage relaxant', price: 60 },
-  },
-  {
-    id: '8',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    level: 'warning',
-    category: 'system',
-    action: 'RATE_LIMIT_EXCEEDED',
-    description: 'Limite de requêtes dépassée',
-    ip: '10.0.0.50',
-    metadata: { endpoint: '/api/search', limit: 100, current: 150 },
-  },
-  {
-    id: '9',
-    timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-    level: 'success',
-    category: 'admin',
-    action: 'REVIEW_MODERATED',
-    description: 'Avis supprimé suite à modération',
-    user: { id: 'admin1', name: 'Admin System', email: 'admin@bookme.com', role: 'ADMIN' },
-    metadata: { reviewId: 'r789', action: 'deleted', reason: 'Spam' },
-  },
-  {
-    id: '10',
-    timestamp: subDays(new Date(), 1).toISOString(),
-    level: 'info',
-    category: 'appointment',
-    action: 'APPOINTMENT_CANCELLED',
-    description: 'Rendez-vous annulé par le client',
-    user: { id: '5', name: 'Lucas Martin', email: 'lucas@email.com', role: 'CLIENT' },
-    metadata: { appointmentId: 'a456', reason: 'Empêchement personnel' },
-  },
-];
+  return map[entityType] || 'admin';
+};
 
 // ==========================================
 // HELPERS
@@ -214,7 +110,7 @@ const getLevelConfig = (level: LogLevel) => {
   }
 };
 
-const getCategoryConfig = (category: LogCategory) => {
+const getCategoryConfig = (category: string) => {
   switch (category) {
     case 'auth':
       return { icon: LogIn, label: 'Authentification' };
@@ -231,7 +127,7 @@ const getCategoryConfig = (category: LogCategory) => {
     case 'system':
       return { icon: Settings, label: 'Système' };
     default:
-      return { icon: FileText, label: category };
+      return { icon: FileText, label: category || 'Autre' };
   }
 };
 
@@ -245,10 +141,15 @@ interface LogRowProps {
 }
 
 function LogRow({ log, onViewDetails }: LogRowProps) {
-  const levelConfig = getLevelConfig(log.level);
-  const categoryConfig = getCategoryConfig(log.category);
+  const level = getLogLevel(log.action);
+  const category = getCategory(log.entityType);
+  const levelConfig = getLevelConfig(level);
+  const categoryConfig = getCategoryConfig(category);
   const LevelIcon = levelConfig.icon;
   const CategoryIcon = categoryConfig.icon;
+
+  const userName = log.user?.email?.split('@')[0] || 'Système';
+  const userInitials = userName.slice(0, 2).toUpperCase();
 
   return (
     <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => onViewDetails(log)}>
@@ -258,7 +159,7 @@ function LogRow({ log, onViewDetails }: LogRowProps) {
             <LevelIcon className={`h-3 w-3 ${levelConfig.color}`} />
           </div>
           <span className="text-sm text-muted-foreground">
-            {format(new Date(log.timestamp), 'dd/MM HH:mm:ss')}
+            {format(new Date(log.createdAt), 'dd/MM HH:mm:ss')}
           </span>
         </div>
       </TableCell>
@@ -272,20 +173,15 @@ function LogRow({ log, onViewDetails }: LogRowProps) {
         <div>
           <p className="font-medium text-sm">{log.action}</p>
           <p className="text-sm text-muted-foreground truncate max-w-xs">
-            {log.description}
+            {log.entityType}{log.entityId ? `: ${log.entityId.slice(0, 8)}...` : ''}
           </p>
         </div>
       </TableCell>
       <TableCell>
         {log.user ? (
           <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarFallback className="text-xs">
-                {log.user.name.split(' ').map((n) => n[0]).join('')}
-              </AvatarFallback>
-            </Avatar>
             <div className="text-sm">
-              <p className="font-medium">{log.user.name}</p>
+              <p className="font-medium">{log.user.email}</p>
               <p className="text-muted-foreground text-xs">{log.user.role}</p>
             </div>
           </div>
@@ -294,12 +190,12 @@ function LogRow({ log, onViewDetails }: LogRowProps) {
         )}
       </TableCell>
       <TableCell>
-        {log.ip && (
-          <span className="text-sm text-muted-foreground font-mono">{log.ip}</span>
+        {log.ipAddress && (
+          <span className="text-sm text-muted-foreground font-mono">{log.ipAddress}</span>
         )}
       </TableCell>
       <TableCell>
-        <Button variant="ghost" size="sm" onClick={() => onViewDetails(log)}>
+        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onViewDetails(log); }}>
           <Eye className="h-4 w-4" />
         </Button>
       </TableCell>
@@ -312,44 +208,80 @@ function LogRow({ log, onViewDetails }: LogRowProps) {
 // ==========================================
 
 export default function LogsPage() {
-  const [logs] = useState<AuditLog[]>(mockLogs);
-  const [isLoading] = useState(false);
+  // ✅ Initialiser avec un tableau vide pour éviter undefined
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalLogs, setTotalLogs] = useState(0);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   const logsPerPage = 20;
 
-  // Filter logs
-  const filteredLogs = logs.filter((log) => {
+  // Load logs from API
+  const loadLogs = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await adminService.getAuditLogs({
+        page: currentPage,
+        limit: logsPerPage,
+        action: searchQuery || undefined,
+        entityType: categoryFilter !== 'all' ? categoryFilter : undefined,
+      });
+      // ✅ Gestion défensive - s'assurer que data est un tableau
+      setLogs(result?.data || []);
+      setTotalLogs(result?.meta?.total || 0);
+    } catch (error) {
+      showError('Impossible de charger les logs');
+      setLogs([]); // ✅ Reset à un tableau vide en cas d'erreur
+      setTotalLogs(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, searchQuery, categoryFilter]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
+
+  // ✅ Utiliser une variable sécurisée pour les filtres
+  const safeLogs = logs || [];
+
+  // Filter logs (client-side for level since backend doesn't have it)
+  const filteredLogs = safeLogs.filter((log) => {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesSearch =
         log.action.toLowerCase().includes(query) ||
-        log.description.toLowerCase().includes(query) ||
-        log.user?.name.toLowerCase().includes(query) ||
-        log.user?.email.toLowerCase().includes(query);
+        log.entityType.toLowerCase().includes(query) ||
+        log.user?.email?.toLowerCase().includes(query);
       if (!matchesSearch) return false;
     }
 
-    // Level filter
-    if (levelFilter !== 'all' && log.level !== levelFilter) return false;
+    // Level filter (client-side)
+    if (levelFilter !== 'all') {
+      const logLevel = getLogLevel(log.action);
+      if (logLevel !== levelFilter) return false;
+    }
 
     // Category filter
-    if (categoryFilter !== 'all' && log.category !== categoryFilter) return false;
+    if (categoryFilter !== 'all') {
+      const logCategory = getCategory(log.entityType);
+      if (logCategory !== categoryFilter) return false;
+    }
 
     // Date filter
     if (dateRange.from) {
-      const logDate = new Date(log.timestamp);
+      const logDate = new Date(log.createdAt);
       if (logDate < dateRange.from) return false;
     }
     if (dateRange.to) {
-      const logDate = new Date(log.timestamp);
+      const logDate = new Date(log.createdAt);
       if (logDate > dateRange.to) return false;
     }
 
@@ -357,11 +289,7 @@ export default function LogsPage() {
   });
 
   // Pagination
-  const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * logsPerPage,
-    currentPage * logsPerPage
-  );
+  const totalPages = Math.ceil(totalLogs / logsPerPage);
 
   // Handlers
   const handleViewDetails = (log: AuditLog) => {
@@ -370,25 +298,32 @@ export default function LogsPage() {
   };
 
   const handleRefresh = () => {
-    // Reload logs
-    console.log('Refreshing logs...');
+    loadLogs();
   };
 
   const handleExport = () => {
     // Export logs as CSV
-    console.log('Exporting logs...');
+    const csvContent = safeLogs.map(log => 
+      `${log.createdAt},${log.action},${log.entityType},${log.user?.email || 'System'},${log.ipAddress || ''}`
+    ).join('\n');
+    const blob = new Blob([`Date,Action,Type,User,IP\n${csvContent}`], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
   };
 
-  // Stats
-  const errorCount = logs.filter((l) => l.level === 'error').length;
-  const warningCount = logs.filter((l) => l.level === 'warning').length;
-  const todayCount = logs.filter((l) => {
-    const logDate = new Date(l.timestamp);
+  // ✅ Stats calculées avec safeLogs
+  const errorCount = safeLogs.filter((l) => getLogLevel(l.action) === 'error').length;
+  const warningCount = safeLogs.filter((l) => getLogLevel(l.action) === 'warning').length;
+  const todayCount = safeLogs.filter((l) => {
+    const logDate = new Date(l.createdAt);
     const today = new Date();
     return logDate.toDateString() === today.toDateString();
   }).length;
 
-  if (isLoading) {
+  if (isLoading && safeLogs.length === 0) {
     return <LoadingSpinner />;
   }
 
@@ -403,8 +338,8 @@ export default function LogsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Actualiser
           </Button>
           <Button variant="outline" onClick={handleExport}>
@@ -507,7 +442,7 @@ export default function LogsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedLogs.map((log) => (
+                  {filteredLogs.map((log) => (
                     <LogRow key={log.id} log={log} onViewDetails={handleViewDetails} />
                   ))}
                 </TableBody>
@@ -517,7 +452,7 @@ export default function LogsPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t">
                   <p className="text-sm text-muted-foreground">
-                    Page {currentPage} sur {totalPages} ({filteredLogs.length} résultats)
+                    Page {currentPage} sur {totalPages} ({totalLogs} résultats)
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -554,27 +489,32 @@ export default function LogsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedLog && (
+          {selectedLog && (() => {
+            const level = getLogLevel(selectedLog.action);
+            const userName = selectedLog.user?.email?.split('@')[0] || 'Système';
+            const userInitials = userName.slice(0, 2).toUpperCase();
+            
+            return (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Date/Heure</p>
                   <p className="font-medium">
-                    {format(new Date(selectedLog.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
+                    {format(new Date(selectedLog.createdAt), 'dd/MM/yyyy HH:mm:ss', { locale: fr })}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Niveau</p>
                   <Badge
                     variant={
-                      selectedLog.level === 'error'
+                      level === 'error'
                         ? 'destructive'
-                        : selectedLog.level === 'warning'
+                        : level === 'warning'
                         ? 'secondary'
                         : 'default'
                     }
                   >
-                    {selectedLog.level.toUpperCase()}
+                    {level.toUpperCase()}
                   </Badge>
                 </div>
               </div>
@@ -585,22 +525,22 @@ export default function LogsPage() {
               </div>
 
               <div>
-                <p className="text-sm text-muted-foreground">Description</p>
-                <p>{selectedLog.description}</p>
+                <p className="text-sm text-muted-foreground">Type d'entité</p>
+                <p>{selectedLog.entityType}{selectedLog.entityId ? ` (${selectedLog.entityId})` : ''}</p>
               </div>
 
               {selectedLog.user && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Utilisateur</p>
                   <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                    <Avatar>
+                    {/* <Avatar>
                       <AvatarFallback>
-                        {selectedLog.user.name.split(' ').map((n) => n[0]).join('')}
+                        {userInitials}
                       </AvatarFallback>
-                    </Avatar>
+                    </Avatar> */}
                     <div>
-                      <p className="font-medium">{selectedLog.user.name}</p>
-                      <p className="text-sm text-muted-foreground">{selectedLog.user.email}</p>
+                      <p className="font-medium">{selectedLog.user.email}</p>
+                      <p className="text-sm text-muted-foreground">ID: {selectedLog.userId}</p>
                     </div>
                     <Badge variant="outline" className="ml-auto">
                       {selectedLog.user.role}
@@ -609,33 +549,34 @@ export default function LogsPage() {
                 </div>
               )}
 
-              {selectedLog.ip && (
+              {selectedLog.ipAddress && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Adresse IP</p>
-                    <p className="font-mono">{selectedLog.ip}</p>
+                    <p className="font-mono">{selectedLog.ipAddress}</p>
                   </div>
                   {selectedLog.userAgent && (
                     <div>
                       <p className="text-sm text-muted-foreground">Navigateur</p>
-                      <p className="font-mono text-sm">{selectedLog.userAgent}</p>
+                      <p className="font-mono text-sm truncate">{selectedLog.userAgent}</p>
                     </div>
                   )}
                 </div>
               )}
 
-              {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
+              {selectedLog.details && Object.keys(selectedLog.details).length > 0 && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">Métadonnées</p>
+                  <p className="text-sm text-muted-foreground mb-2">Détails</p>
                   <ScrollArea className="h-32">
                     <pre className="p-3 bg-muted rounded-lg text-xs font-mono overflow-x-auto">
-                      {JSON.stringify(selectedLog.metadata, null, 2)}
+                      {JSON.stringify(selectedLog.details, null, 2)}
                     </pre>
                   </ScrollArea>
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

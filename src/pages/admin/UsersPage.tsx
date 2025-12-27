@@ -5,87 +5,68 @@
  * - Liste avec filtres et recherche
  * - Détails utilisateur
  * - Actions (activer, désactiver, supprimer)
+ * 
+ * ALIGNÉ AVEC BACKEND: /admin/users/*
+ * @see backend/src/admin/admin.controller.ts
+ * @see backend/src/admin/admin.service.ts
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Search,
-  Filter,
   MoreHorizontal,
   User,
   Building,
   Shield,
   Check,
-  X,
   Ban,
   Trash2,
   Eye,
   Mail,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { api } from '@/lib/api';
-import type { User as UserType } from '@/types';
+import { adminService, type AdminUser } from '@/services';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Button,
-  Input,
-  Avatar,
-  Badge,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui';
+} from '@/components/ui/select';
 import { showSuccess, showError } from '@/components/ui/toast';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/shared';
-
-// ==========================================
-// TYPES
-// ==========================================
-
-interface AdminUser extends UserType {
-  client?: {
-    firstName: string;
-    lastName: string;
-    phone: string | null;
-    avatar: string | null;
-  };
-  prestataire?: {
-    businessName: string;
-    firstName: string;
-    lastName: string;
-    phone: string | null;
-    avatar: string | null;
-    isVerified: boolean;
-  };
-  _count?: {
-    appointments?: number;
-    reviews?: number;
-  };
-}
+import { Avatar } from '@/components/ui/avatar';
 
 // ==========================================
 // ROLE BADGE
@@ -121,29 +102,40 @@ interface UserRowProps {
 }
 
 function UserRow({ user, onView, onToggleActive, onDelete }: UserRowProps) {
+  // Récupérer le profil selon le rôle
   const profile = user.client || user.prestataire;
+  
+  // Construire le nom d'affichage
   const getName = (): string => {
-    if (!profile) return user.email;
-    if (user.prestataire) return user.prestataire.businessName;
+    if (user.prestataire?.businessName) return user.prestataire.businessName;
     if (user.client) return `${user.client.firstName} ${user.client.lastName}`;
-    return user.email;
+    if (user.prestataire) return `${user.prestataire.firstName} ${user.prestataire.lastName}`;
+    return user.email.split('@')[0]; // Fallback sur le début de l'email
   };
+  
   const name = getName();
+  const initials = name.slice(0, 2).toUpperCase();
 
   return (
     <div className="flex items-center gap-4 p-4 border-b last:border-b-0 hover:bg-accent/50 transition-colors">
-      <Avatar
-        src={profile?.avatar}
-        firstName={profile && 'firstName' in profile ? profile.firstName : undefined}
-        lastName={profile && 'lastName' in profile ? profile.lastName : undefined}
-        size="md"
-      />
+      {/* <Avatar className="h-10 w-10">
+        {profile?.avatar ? (
+          <img src={profile.avatar} alt={name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center bg-muted text-muted-foreground text-sm font-medium">
+            {initials}
+          </div>
+        )}
+      </Avatar> */}
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="font-medium truncate">{name}</p>
           {!user.isActive && (
             <Badge variant="destructive" className="text-xs">Inactif</Badge>
+          )}
+          {!user.emailVerified && (
+            <Badge variant="outline" className="text-xs">Non vérifié</Badge>
           )}
         </div>
         <p className="text-sm text-muted-foreground truncate">{user.email}</p>
@@ -213,13 +205,16 @@ function UserDetailDialog({ user, open, onOpenChange }: UserDetailDialogProps) {
   if (!user) return null;
 
   const profile = user.client || user.prestataire;
+  
   const getName = (): string => {
-    if (!profile) return user.email;
-    if (user.prestataire) return user.prestataire.businessName;
+    if (user.prestataire?.businessName) return user.prestataire.businessName;
     if (user.client) return `${user.client.firstName} ${user.client.lastName}`;
+    if (user.prestataire) return `${user.prestataire.firstName} ${user.prestataire.lastName}`;
     return user.email;
   };
+  
   const name = getName();
+  const initials = name.slice(0, 2).toUpperCase();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -231,12 +226,15 @@ function UserDetailDialog({ user, open, onOpenChange }: UserDetailDialogProps) {
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <Avatar
-              src={profile?.avatar}
-              firstName={profile && 'firstName' in profile ? profile.firstName : undefined}
-              lastName={profile && 'lastName' in profile ? profile.lastName : undefined}
-              size="xl"
-            />
+            {/* <Avatar className="h-16 w-16">
+              {profile?.avatar ? (
+                <img src={profile.avatar} alt={name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center bg-muted text-muted-foreground text-lg font-medium">
+                  {initials}
+                </div>
+              )}
+            </Avatar> */}
             <div>
               <h3 className="text-lg font-semibold">{name}</h3>
               <p className="text-muted-foreground">{user.email}</p>
@@ -270,34 +268,45 @@ function UserDetailDialog({ user, open, onOpenChange }: UserDetailDialogProps) {
                 )}
               </p>
             </div>
+            {user.lastLoginAt && (
+              <div>
+                <p className="text-muted-foreground">Dernière connexion</p>
+                <p className="font-medium">
+                  {format(new Date(user.lastLoginAt), 'PPP à HH:mm', { locale: fr })}
+                </p>
+              </div>
+            )}
             {profile?.phone && (
               <div>
                 <p className="text-muted-foreground">Téléphone</p>
                 <p className="font-medium">{profile.phone}</p>
               </div>
             )}
-            {user._count?.appointments !== undefined && (
-              <div>
-                <p className="text-muted-foreground">Rendez-vous</p>
-                <p className="font-medium">{user._count.appointments}</p>
-              </div>
-            )}
           </div>
+
+          {/* Client specific */}
+          {user.client && (
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm font-medium mb-2">Informations client</p>
+              <p className="text-sm">
+                {user.client.firstName} {user.client.lastName}
+              </p>
+            </div>
+          )}
 
           {/* Prestataire specific */}
           {user.prestataire && (
             <div className="p-4 bg-muted rounded-lg">
               <p className="text-sm font-medium mb-2">Informations prestataire</p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Vérifié:</span>
-                {user.prestataire.isVerified ? (
-                  <Badge variant="default" className="bg-green-500">
-                    <Check className="h-3 w-3 mr-1" />
-                    Oui
+              <div className="space-y-2 text-sm">
+                <p><span className="text-muted-foreground">Entreprise:</span> {user.prestataire.businessName}</p>
+                <p><span className="text-muted-foreground">Nom:</span> {user.prestataire.firstName} {user.prestataire.lastName}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Statut:</span>
+                  <Badge variant={user.prestataire.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                    {user.prestataire.status}
                   </Badge>
-                ) : (
-                  <Badge variant="secondary">En attente</Badge>
-                )}
+                </div>
               </div>
             </div>
           )}
@@ -322,7 +331,9 @@ export function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const usersPerPage = 20;
 
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -330,44 +341,37 @@ export function AdminUsersPage() {
     open: false,
     user: null,
   });
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Load users
+  // Load users from API
+  const loadUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await adminService.getUsers({
+        role: roleFilter !== 'all' ? (roleFilter as 'CLIENT' | 'PRESTATAIRE' | 'ADMIN') : undefined,
+        search: searchQuery || undefined,
+        page: currentPage,
+        limit: usersPerPage,
+      });
+      setUsers(result.data || []);
+      setTotalUsers(result.meta?.total || 0);
+    } catch (error) {
+      showError('Impossible de charger les utilisateurs');
+      setUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [roleFilter, searchQuery, currentPage]);
+
+  // Load on mount and when filters change
   useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const response = await api.get('/admin/users');
-        setUsers(response.data.data || response.data);
-      } catch (error) {
-        showError('Impossible de charger les utilisateurs');
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
-  // Filter users
-  const filteredUsers = users.filter((user) => {
-    const getName = (): string => {
-      if (user.prestataire) return user.prestataire.businessName;
-      if (user.client) return `${user.client.firstName} ${user.client.lastName}`;
-      return '';
-    };
-    const name = getName();
-    
-    const matchesSearch =
-      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'active' && user.isActive) ||
-      (statusFilter === 'inactive' && !user.isActive);
-
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter, searchQuery]);
 
   // Handlers
   const handleView = (user: AdminUser) => {
@@ -376,14 +380,23 @@ export function AdminUsersPage() {
   };
 
   const handleToggleActive = async (user: AdminUser) => {
+    setIsProcessing(true);
     try {
-      await api.patch(`/admin/users/${user.id}`, { isActive: !user.isActive });
+      if (user.isActive) {
+        await adminService.suspendUser(user.id);
+        showSuccess('Utilisateur désactivé');
+      } else {
+        await adminService.reactivateUser(user.id);
+        showSuccess('Utilisateur activé');
+      }
+      // Mettre à jour localement
       setUsers((prev) =>
         prev.map((u) => (u.id === user.id ? { ...u, isActive: !u.isActive } : u))
       );
-      showSuccess(user.isActive ? 'Utilisateur désactivé' : 'Utilisateur activé');
     } catch (error) {
       showError('Impossible de modifier le statut');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -394,22 +407,29 @@ export function AdminUsersPage() {
   const handleConfirmDelete = async () => {
     if (!deleteDialog.user) return;
 
-    setIsDeleting(true);
+    setIsProcessing(true);
     try {
-      await api.delete(`/admin/users/${deleteDialog.user.id}`);
+      await adminService.deleteUser(deleteDialog.user.id);
       setUsers((prev) => prev.filter((u) => u.id !== deleteDialog.user!.id));
       showSuccess('Utilisateur supprimé');
       setDeleteDialog({ open: false, user: null });
     } catch (error) {
       showError('Impossible de supprimer l\'utilisateur');
     } finally {
-      setIsDeleting(false);
+      setIsProcessing(false);
     }
   };
 
-  // Stats
+  const handleRefresh = () => {
+    loadUsers();
+  };
+
+  // Pagination
+  const totalPages = Math.ceil(totalUsers / usersPerPage);
+
+  // Stats (calculées localement sur les données chargées)
   const stats = {
-    total: users.length,
+    total: totalUsers,
     clients: users.filter((u) => u.role === 'CLIENT').length,
     prestataires: users.filter((u) => u.role === 'PRESTATAIRE').length,
     inactive: users.filter((u) => !u.isActive).length,
@@ -418,11 +438,17 @@ export function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Utilisateurs</h1>
-        <p className="text-muted-foreground mt-1">
-          Gérez les utilisateurs de la plateforme
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Utilisateurs</h1>
+          <p className="text-muted-foreground mt-1">
+            Gérez les utilisateurs de la plateforme
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+          Actualiser
+        </Button>
       </div>
 
       {/* Stats */}
@@ -436,19 +462,19 @@ export function AdminUsersPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-blue-600">{stats.clients}</p>
-            <p className="text-sm text-muted-foreground">Clients</p>
+            <p className="text-sm text-muted-foreground">Clients (page)</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-green-600">{stats.prestataires}</p>
-            <p className="text-sm text-muted-foreground">Prestataires</p>
+            <p className="text-sm text-muted-foreground">Prestataires (page)</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
-            <p className="text-sm text-muted-foreground">Inactifs</p>
+            <p className="text-sm text-muted-foreground">Inactifs (page)</p>
           </CardContent>
         </Card>
       </div>
@@ -461,7 +487,7 @@ export function AdminUsersPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher par nom ou email..."
+                  placeholder="Rechercher par email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -479,16 +505,6 @@ export function AdminUsersPage() {
                 <SelectItem value="ADMIN">Admins</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous</SelectItem>
-                <SelectItem value="active">Actifs</SelectItem>
-                <SelectItem value="inactive">Inactifs</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
@@ -497,7 +513,7 @@ export function AdminUsersPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {filteredUsers.length} utilisateur{filteredUsers.length > 1 ? 's' : ''}
+            {totalUsers} utilisateur{totalUsers > 1 ? 's' : ''}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -505,7 +521,7 @@ export function AdminUsersPage() {
             <div className="flex justify-center py-12">
               <Spinner size="lg" />
             </div>
-          ) : filteredUsers.length === 0 ? (
+          ) : users.length === 0 ? (
             <div className="py-12">
               <EmptyState
                 icon={User}
@@ -514,17 +530,46 @@ export function AdminUsersPage() {
               />
             </div>
           ) : (
-            <div>
-              {filteredUsers.map((user) => (
-                <UserRow
-                  key={user.id}
-                  user={user}
-                  onView={handleView}
-                  onToggleActive={handleToggleActive}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
+            <>
+              <div>
+                {users.map((user) => (
+                  <UserRow
+                    key={user.id}
+                    user={user}
+                    onView={handleView}
+                    onToggleActive={handleToggleActive}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Page {currentPage} sur {totalPages} ({totalUsers} résultats)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -545,7 +590,7 @@ export function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Supprimer l'utilisateur</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.
+              Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action désactivera le compte de manière permanente.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -558,9 +603,16 @@ export function AdminUsersPage() {
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
-              isLoading={isDeleting}
+              disabled={isProcessing}
             >
-              Supprimer
+              {isProcessing ? (
+                <>
+                  <Spinner size="sm" className="mr-2" />
+                  Suppression...
+                </>
+              ) : (
+                'Supprimer'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

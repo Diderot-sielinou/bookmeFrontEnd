@@ -5,71 +5,61 @@
  * - Liste des demandes en attente
  * - Détails et documents
  * - Approuver ou rejeter
+ * 
+ * ALIGNÉ AVEC BACKEND: /admin/prestataires/*
+ * @see backend/src/admin/admin.controller.ts
+ * @see backend/src/admin/admin.service.ts
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   CheckCircle,
   XCircle,
   Clock,
-  Building,
   MapPin,
   Phone,
   Mail,
   Globe,
-  FileText,
   Eye,
   ThumbsUp,
   ThumbsDown,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { api } from '@/lib/api';
-import type { Prestataire } from '@/types';
+import { adminService, type PendingPrestataire } from '@/services';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Button,
-  Avatar,
-  Badge,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Textarea,
-  Label,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-  Separator,
-} from '@/components/ui';
+} from '@/components/ui/tabs';
 import { showSuccess, showError } from '@/components/ui/toast';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/shared';
-
-// ==========================================
-// TYPES
-// ==========================================
-
-interface PendingPrestataire extends Omit<Prestataire, 'user'> {
-  user: {
-    email: string;
-    createdAt: string;
-  };
-  documents?: {
-    id: string;
-    type: string;
-    url: string;
-    name: string;
-  }[];
-}
+import { Avatar } from '@/components/ui/avatar';
 
 // ==========================================
 // PRESTATAIRE CARD
@@ -83,16 +73,21 @@ interface PrestataireCardProps {
 }
 
 function PrestataireCard({ prestataire, onView, onApprove, onReject }: PrestataireCardProps) {
+  const initials = `${prestataire.firstName?.[0] || ''}${prestataire.lastName?.[0] || ''}`.toUpperCase();
+
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
-          <Avatar
-            src={prestataire.avatar}
-            firstName={prestataire.firstName}
-            lastName={prestataire.lastName}
-            size="lg"
-          />
+          {/* <Avatar className="h-12 w-12">
+            {prestataire.avatar ? (
+              <img src={prestataire.avatar} alt={prestataire.businessName} className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-muted text-muted-foreground font-medium">
+                {initials}
+              </div>
+            )}
+          </Avatar> */}
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4">
@@ -102,7 +97,7 @@ function PrestataireCard({ prestataire, onView, onApprove, onReject }: Prestatai
                   {prestataire.firstName} {prestataire.lastName}
                 </p>
               </div>
-              <Badge variant="warning" className="shrink-0">
+              <Badge variant="secondary" className="shrink-0 bg-amber-100 text-amber-800">
                 <Clock className="h-3 w-3 mr-1" />
                 En attente
               </Badge>
@@ -111,7 +106,7 @@ function PrestataireCard({ prestataire, onView, onApprove, onReject }: Prestatai
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
-                <span className="truncate">{prestataire.user.email}</span>
+                <span className="truncate">{prestataire.user?.email}</span>
               </div>
               {prestataire.phone && (
                 <div className="flex items-center gap-2">
@@ -125,12 +120,14 @@ function PrestataireCard({ prestataire, onView, onApprove, onReject }: Prestatai
                   <span>{prestataire.city}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>
-                  Inscrit le {format(new Date(prestataire.user.createdAt), 'd MMM yyyy', { locale: fr })}
-                </span>
-              </div>
+              {prestataire.user?.createdAt && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>
+                    Inscrit le {format(new Date(prestataire.user.createdAt), 'd MMM yyyy', { locale: fr })}
+                  </span>
+                </div>
+              )}
             </div>
 
             {prestataire.categories && prestataire.categories.length > 0 && (
@@ -183,10 +180,13 @@ interface DetailDialogProps {
   onOpenChange: (open: boolean) => void;
   onApprove: () => void;
   onReject: () => void;
+  isProcessing: boolean;
 }
 
-function DetailDialog({ prestataire, open, onOpenChange, onApprove, onReject }: DetailDialogProps) {
+function DetailDialog({ prestataire, open, onOpenChange, onApprove, onReject, isProcessing }: DetailDialogProps) {
   if (!prestataire) return null;
+
+  const initials = `${prestataire.firstName?.[0] || ''}${prestataire.lastName?.[0] || ''}`.toUpperCase();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -201,18 +201,21 @@ function DetailDialog({ prestataire, open, onOpenChange, onApprove, onReject }: 
         <Tabs defaultValue="info" className="mt-4">
           <TabsList>
             <TabsTrigger value="info">Informations</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="bio">Présentation</TabsTrigger>
           </TabsList>
 
           <TabsContent value="info" className="space-y-6 mt-4">
             {/* Header */}
             <div className="flex items-center gap-4">
-              <Avatar
-                src={prestataire.avatar}
-                firstName={prestataire.firstName}
-                lastName={prestataire.lastName}
-                size="xl"
-              />
+              {/* <Avatar className="h-16 w-16">
+                {prestataire.avatar ? (
+                  <img src={prestataire.avatar} alt={prestataire.businessName} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-muted text-muted-foreground text-lg font-medium">
+                    {initials}
+                  </div>
+                )}
+              </Avatar> */}
               <div>
                 <h3 className="text-xl font-semibold">{prestataire.businessName}</h3>
                 <p className="text-muted-foreground">
@@ -227,25 +230,12 @@ function DetailDialog({ prestataire, open, onOpenChange, onApprove, onReject }: 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{prestataire.user.email}</span>
+                  <span>{prestataire.user?.email}</span>
                 </div>
                 {prestataire.phone && (
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
                     <span>{prestataire.phone}</span>
-                  </div>
-                )}
-                {prestataire.website && (
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
-                    <a
-                      href={prestataire.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-cyan-600 hover:underline"
-                    >
-                      {prestataire.website}
-                    </a>
                   </div>
                 )}
               </div>
@@ -283,46 +273,30 @@ function DetailDialog({ prestataire, open, onOpenChange, onApprove, onReject }: 
               </div>
             )}
 
-            {/* Bio */}
-            {prestataire.bio && (
+            {/* Registration date */}
+            {prestataire.user?.createdAt && (
+              <div className="space-y-3">
+                <h4 className="font-medium">Date d'inscription</h4>
+                <p className="text-sm text-muted-foreground">
+                  {format(new Date(prestataire.user.createdAt), 'PPP à HH:mm', { locale: fr })}
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="bio" className="mt-4">
+            {prestataire.bio ? (
               <div className="space-y-3">
                 <h4 className="font-medium">Présentation</h4>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                   {prestataire.bio}
                 </p>
               </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="documents" className="mt-4">
-            {prestataire.documents && prestataire.documents.length > 0 ? (
-              <div className="space-y-3">
-                {prestataire.documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground">{doc.type}</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                        <Eye className="h-4 w-4 mr-1" />
-                        Voir
-                      </a>
-                    </Button>
-                  </div>
-                ))}
-              </div>
             ) : (
               <EmptyState
-                icon={FileText}
-                title="Aucun document"
-                description="Ce prestataire n'a pas encore fourni de documents"
+                icon={Eye}
+                title="Pas de présentation"
+                description="Ce prestataire n'a pas encore renseigné sa présentation"
               />
             )}
           </TabsContent>
@@ -335,6 +309,7 @@ function DetailDialog({ prestataire, open, onOpenChange, onApprove, onReject }: 
           <Button
             variant="destructive"
             onClick={onReject}
+            disabled={isProcessing}
           >
             <ThumbsDown className="h-4 w-4 mr-1" />
             Rejeter
@@ -342,8 +317,13 @@ function DetailDialog({ prestataire, open, onOpenChange, onApprove, onReject }: 
           <Button
             className="bg-green-600 hover:bg-green-700"
             onClick={onApprove}
+            disabled={isProcessing}
           >
-            <ThumbsUp className="h-4 w-4 mr-1" />
+            {isProcessing ? (
+              <Spinner size="sm" className="mr-2" />
+            ) : (
+              <ThumbsUp className="h-4 w-4 mr-1" />
+            )}
             Approuver
           </Button>
         </DialogFooter>
@@ -378,6 +358,13 @@ function RejectionDialog({
     setReason('');
   };
 
+  // Reset reason when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setReason('');
+    }
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -408,10 +395,16 @@ function RejectionDialog({
           <Button
             variant="destructive"
             onClick={handleConfirm}
-            disabled={!reason.trim()}
-            isLoading={isLoading}
+            disabled={!reason.trim() || isLoading}
           >
-            Confirmer le rejet
+            {isLoading ? (
+              <>
+                <Spinner size="sm" className="mr-2" />
+                Traitement...
+              </>
+            ) : (
+              'Confirmer le rejet'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -427,6 +420,9 @@ export function AdminValidationPage() {
   const [prestataires, setPrestataires] = useState<PendingPrestataire[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPrestataires, setTotalPrestataires] = useState(0);
+  const prestatairesPerPage = 10;
 
   const [detailDialog, setDetailDialog] = useState<{
     open: boolean;
@@ -438,20 +434,24 @@ export function AdminValidationPage() {
     prestataire: PendingPrestataire | null;
   }>({ open: false, prestataire: null });
 
-  // Load pending prestataires
+  // Load pending prestataires from API
+  const loadPending = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await adminService.getPendingPrestataires(currentPage, prestatairesPerPage);
+      setPrestataires(result?.data || []);
+      setTotalPrestataires(result?.meta?.total || 0);
+    } catch (error) {
+      showError('Impossible de charger les demandes');
+      setPrestataires([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage]);
+
   useEffect(() => {
-    const loadPending = async () => {
-      try {
-        const response = await api.get('/admin/prestataires/pending');
-        setPrestataires(response.data.data || response.data);
-      } catch (error) {
-        showError('Impossible de charger les demandes');
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadPending();
-  }, []);
+  }, [loadPending]);
 
   // Handlers
   const handleView = (prestataire: PendingPrestataire) => {
@@ -461,8 +461,9 @@ export function AdminValidationPage() {
   const handleApprove = async (prestataire: PendingPrestataire) => {
     setIsProcessing(true);
     try {
-      await api.post(`/admin/prestataires/${prestataire.id}/approve`);
+      await adminService.approvePrestataire(prestataire.id);
       setPrestataires((prev) => prev.filter((p) => p.id !== prestataire.id));
+      setTotalPrestataires((prev) => prev - 1);
       setDetailDialog({ open: false, prestataire: null });
       showSuccess(`${prestataire.businessName} a été approuvé`);
     } catch (error) {
@@ -482,12 +483,11 @@ export function AdminValidationPage() {
 
     setIsProcessing(true);
     try {
-      await api.post(`/admin/prestataires/${rejectDialog.prestataire.id}/reject`, {
-        reason,
-      });
+      await adminService.rejectPrestataire(rejectDialog.prestataire.id, reason);
       setPrestataires((prev) =>
         prev.filter((p) => p.id !== rejectDialog.prestataire!.id)
       );
+      setTotalPrestataires((prev) => prev - 1);
       setRejectDialog({ open: false, prestataire: null });
       showSuccess('Demande rejetée');
     } catch (error) {
@@ -497,14 +497,27 @@ export function AdminValidationPage() {
     }
   };
 
+  const handleRefresh = () => {
+    loadPending();
+  };
+
+  // Pagination
+  const totalPages = Math.ceil(totalPrestataires / prestatairesPerPage);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Validation des prestataires</h1>
-        <p className="text-muted-foreground mt-1">
-          Vérifiez et validez les nouveaux prestataires
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Validation des prestataires</h1>
+          <p className="text-muted-foreground mt-1">
+            Vérifiez et validez les nouveaux prestataires
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+          <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+          Actualiser
+        </Button>
       </div>
 
       {/* Stats */}
@@ -515,7 +528,7 @@ export function AdminValidationPage() {
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{prestataires.length}</p>
+              <p className="text-2xl font-bold">{totalPrestataires}</p>
               <p className="text-sm text-muted-foreground">En attente</p>
             </div>
           </CardContent>
@@ -561,17 +574,46 @@ export function AdminValidationPage() {
               description="Aucune demande de validation en attente"
             />
           ) : (
-            <div className="space-y-4">
-              {prestataires.map((prestataire) => (
-                <PrestataireCard
-                  key={prestataire.id}
-                  prestataire={prestataire}
-                  onView={handleView}
-                  onApprove={() => handleApprove(prestataire)}
-                  onReject={() => handleReject(prestataire)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-4">
+                {prestataires.map((prestataire) => (
+                  <PrestataireCard
+                    key={prestataire.id}
+                    prestataire={prestataire}
+                    onView={handleView}
+                    onApprove={() => handleApprove(prestataire)}
+                    onReject={() => handleReject(prestataire)}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Page {currentPage} sur {totalPages} ({totalPrestataires} demandes)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -583,6 +625,7 @@ export function AdminValidationPage() {
         onOpenChange={(open) => setDetailDialog({ ...detailDialog, open })}
         onApprove={() => detailDialog.prestataire && handleApprove(detailDialog.prestataire)}
         onReject={() => detailDialog.prestataire && handleReject(detailDialog.prestataire)}
+        isProcessing={isProcessing}
       />
 
       {/* Rejection dialog */}

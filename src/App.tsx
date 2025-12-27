@@ -46,12 +46,12 @@ import PrestataireMessagesPage from "@/pages/prestataire/MessagesPage";
 import PrestataireSettingsPage from "@/pages/prestataire/SettingsPage";
 
 // Pages admin
-// import AdminDashboardPage from '@/pages/admin/DashboardPage';
-// import AdminUsersPage from '@/pages/admin/UsersPage';
-// import AdminValidationPage from '@/pages/admin/ValidationPage';
-// import AdminModerationPage from '@/pages/admin/ModerationPage';
-// import AdminCategoriesPage from '@/pages/admin/CategoriesPage';
-// import AdminLogsPage from '@/pages/admin/LogsPage';
+import AdminDashboardPage from '@/pages/admin/DashboardPage';
+import AdminUsersPage from '@/pages/admin/UsersPage';
+import AdminValidationPage from '@/pages/admin/ValidationPage';
+import AdminModerationPage from '@/pages/admin/ModerationPage';
+import AdminCategoriesPage from '@/pages/admin/CategoriesPage';
+import AdminLogsPage from '@/pages/admin/LogsPage';
 
 // Error pages
 import NotFoundPage from "@/pages/NotFoundPage";
@@ -243,7 +243,7 @@ function App() {
             {/* ==========================================
                 ROUTES ADMIN
                 ========================================== */}
-            {/* <Route
+            <Route
               element={
                 <ProtectedRoute allowedRoles={['ADMIN']}>
                   <DashboardLayout />
@@ -256,7 +256,7 @@ function App() {
               <Route path={ROUTES.ADMIN_REVIEWS_MODERATION} element={<AdminModerationPage />} />
               <Route path={ROUTES.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
               <Route path={ROUTES.ADMIN_LOGS} element={<AdminLogsPage />} />
-            </Route> */}
+            </Route>
 
             {/* ==========================================
                 404 et redirections

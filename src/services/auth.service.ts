@@ -160,6 +160,7 @@ export const forgotPassword = async (
 /**
  * Réinitialise le mot de passe avec le token reçu par email
  */
+
 export const resetPassword = async (
   data: ResetPasswordDto
 ): Promise<{ message: string }> => {

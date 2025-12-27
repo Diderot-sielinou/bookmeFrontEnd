@@ -89,7 +89,8 @@ export default function ResetPasswordPage() {
 
     try {
       setError(null);
-      await resetPassword(token,{ token, password: data.password });
+      // ✅ Correct - 1 argument
+      await resetPassword({ token, password: data.password });
       setIsSuccess(true);
 
       // Rediriger vers la page de connexion après 3 secondes

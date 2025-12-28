@@ -60,6 +60,7 @@ export const getPrestataireById = async (id: string): Promise<Prestataire> => {
   const response = await api.get<{ data: Prestataire }>(
     `/users/prestataires/${id}`
   );
+  // console.log(`getPrestataireById ${JSON.stringify(response.data.data)}`)
   return response.data.data;
 };
 
@@ -69,6 +70,8 @@ export const getPrestataireServices = async (
   const response = await api.get<{ data: Service[] }>(
     `/services/prestataire/${prestataireId}`
   );
+  // console.log(`getPrestataireServices ${JSON.stringify(response.data.data)}`)
+
   return response.data.data;
 };
 
@@ -93,6 +96,8 @@ export const getMyPrestataireProfile = async (): Promise<Prestataire> => {
   const response = await api.get<{ data: Prestataire }>(
     "/users/prestataires/me"
   );
+  // console.log(`getMyPrestataireProfile ${JSON.stringify(response.data.data)}`)
+
   return response.data.data;
 };
 

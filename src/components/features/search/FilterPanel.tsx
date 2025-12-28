@@ -116,7 +116,7 @@ function FilterContent({
         {activeFiltersCount > 0 && (
           <Button variant="ghost" size="sm" onClick={onReset}>
             <RotateCcw className="h-4 w-4 mr-1" />
-            Réinitialiser
+            Reset
           </Button>
         )}
       </div>
@@ -179,7 +179,7 @@ function FilterContent({
         {/* Prix maximum */}
         <AccordionItem value="price">
           <AccordionTrigger className="text-sm font-medium">
-            Prix maximum
+            Maximum price
           </AccordionTrigger>
           <AccordionContent>
             <div className="pt-2 space-y-4">

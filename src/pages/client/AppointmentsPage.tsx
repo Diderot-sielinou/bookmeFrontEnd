@@ -1,14 +1,14 @@
 /**
- * Page Mes Rendez-vous (Client)
+ * My Appointments Page (Client)
  * 
- * Liste des rendez-vous du client avec filtrage par statut
- * et actions (annuler, laisser un avis).
+ * List of client appointments with status filtering
+ * and actions (cancel, leave review).
  */
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import {
   Calendar,
   Clock,
@@ -54,11 +54,9 @@ import { EmptyState, ErrorState } from '@/components/shared';
 // ==========================================
 
 const statusConfig: Record<AppointmentStatus, { label: string; variant: 'default' | 'secondary' | 'success' | 'warning' | 'destructive' }> = {
-  // [AppointmentStatus.PENDING]: { label: 'En attente', variant: 'warning' },
-  [AppointmentStatus.CONFIRMED]: { label: 'Confirmé', variant: 'success' },
-  [AppointmentStatus.CANCELLED]: { label: 'Annulé', variant: 'destructive' },
-  [AppointmentStatus.COMPLETED]: { label: 'Terminé', variant: 'secondary' },
-  // [AppointmentStatus.NO_SHOW]: { label: 'Absent', variant: 'destructive' },
+  [AppointmentStatus.CONFIRMED]: { label: 'Confirmed', variant: 'success' },
+  [AppointmentStatus.CANCELLED]: { label: 'Cancelled', variant: 'destructive' },
+  [AppointmentStatus.COMPLETED]: { label: 'Completed', variant: 'secondary' },
 };
 
 // ==========================================
@@ -84,7 +82,7 @@ function AppointmentCard({ appointment, onCancel, onReview, onMessage }: Appoint
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         <div className="flex flex-col sm:flex-row">
-          {/* Info principale */}
+          {/* Main info */}
           <div className="flex-1 p-4 sm:p-6">
             <div className="flex items-start gap-4">
               <Avatar
@@ -110,7 +108,7 @@ function AppointmentCard({ appointment, onCancel, onReview, onMessage }: Appoint
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     <span>
-                      {slot ? format(new Date(slot.date), 'EEEE d MMMM yyyy', { locale: fr }) : '-'}
+                      {slot ? format(new Date(slot.date), 'EEEE, MMMM d, yyyy', { locale: enUS }) : '-'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -148,7 +146,7 @@ function AppointmentCard({ appointment, onCancel, onReview, onMessage }: Appoint
                         onClick={() => onReview(appointment)}
                       >
                         <Star className="h-4 w-4 mr-1" />
-                        Avis
+                        Review
                       </Button>
                     )}
                     
@@ -159,7 +157,7 @@ function AppointmentCard({ appointment, onCancel, onReview, onMessage }: Appoint
                         onClick={() => onCancel(appointment)}
                       >
                         <X className="h-4 w-4 mr-1" />
-                        Annuler
+                        Cancel
                       </Button>
                     )}
                     
@@ -204,20 +202,20 @@ function CancelDialog({ appointment, open, onOpenChange, onConfirm, isLoading }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Annuler le rendez-vous</DialogTitle>
+          <DialogTitle>Cancel Appointment</DialogTitle>
           <DialogDescription>
-            Êtes-vous sûr de vouloir annuler ce rendez-vous avec{' '}
+            Are you sure you want to cancel this appointment with{' '}
             {appointment?.prestataire?.businessName || 
-              `${appointment?.prestataire?.firstName} ${appointment?.prestataire?.lastName}`} ?
+              `${appointment?.prestataire?.firstName} ${appointment?.prestataire?.lastName}`}?
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="reason">Raison de l'annulation (optionnel)</Label>
+            <Label htmlFor="reason">Cancellation reason (optional)</Label>
             <Textarea
               id="reason"
-              placeholder="Expliquez pourquoi vous annulez..."
+              placeholder="Explain why you're cancelling..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
@@ -227,10 +225,10 @@ function CancelDialog({ appointment, open, onOpenChange, onConfirm, isLoading }:
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Retour
+            Back
           </Button>
           <Button variant="destructive" onClick={handleConfirm} isLoading={isLoading}>
-            Confirmer l'annulation
+            Confirm Cancellation
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -250,12 +248,12 @@ export function ClientAppointmentsPage() {
   });
 
   const today = useMemo(() => {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString();
-}, []);
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date.toISOString();
+  }, []);
 
-  // Queries par statut
+  // Queries by status
   const upcomingQuery = useAppointments({
     status: [AppointmentStatus.CONFIRMED],
     startDate: today,
@@ -284,7 +282,6 @@ export function ClientAppointmentsPage() {
   };
 
   const handleReview = (appointment: Appointment) => {
-    // Navigate to review page or open review dialog
     window.location.href = `${ROUTES.CLIENT_REVIEWS}?appointmentId=${appointment.id}`;
   };
 
@@ -311,16 +308,16 @@ export function ClientAppointmentsPage() {
     }
 
     if (error) {
-      return <ErrorState message="Impossible de charger les rendez-vous" onRetry={refetch} />;
+      return <ErrorState message="Unable to load appointments" onRetry={refetch} />;
     }
 
     if (!data || data.length === 0) {
       return (
         <EmptyState
           icon={Calendar}
-          title="Aucun rendez-vous"
+          title="No appointments"
           description={emptyMessage}
-          actionLabel="Rechercher un prestataire"
+          actionLabel="Search for a provider"
           onAction={() => window.location.href = ROUTES.SEARCH}
         />
       );
@@ -346,13 +343,13 @@ export function ClientAppointmentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Mes rendez-vous</h1>
+          <h1 className="text-3xl font-bold">My Appointments</h1>
           <p className="text-muted-foreground mt-1">
-            Gérez vos rendez-vous passés et à venir
+            Manage your past and upcoming appointments
           </p>
         </div>
         <Button asChild>
-          <Link to={ROUTES.SEARCH}>Nouveau rendez-vous</Link>
+          <Link to={ROUTES.SEARCH}>New Appointment</Link>
         </Button>
       </div>
 
@@ -360,15 +357,15 @@ export function ClientAppointmentsPage() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList>
           <TabsTrigger value="upcoming" className="gap-2">
-            À venir
+            Upcoming
             {upcomingQuery.data?.data?.length ? (
               <Badge variant="secondary" className="ml-1">
                 {upcomingQuery.data.data.length}
               </Badge>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="past">Passés</TabsTrigger>
-          <TabsTrigger value="cancelled">Annulés</TabsTrigger>
+          <TabsTrigger value="past">Past</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
         </TabsList>
 
         <TabsContent value="upcoming" className="mt-6">
@@ -377,7 +374,7 @@ export function ClientAppointmentsPage() {
             upcomingQuery.isLoading,
             upcomingQuery.error as Error | null,
             upcomingQuery.refetch,
-            "Vous n'avez aucun rendez-vous prévu. Trouvez un prestataire et réservez !"
+            "You don't have any upcoming appointments. Find a provider and book now!"
           )}
         </TabsContent>
 
@@ -387,7 +384,7 @@ export function ClientAppointmentsPage() {
             pastQuery.isLoading,
             pastQuery.error as Error | null,
             pastQuery.refetch,
-            "Vous n'avez pas encore de rendez-vous terminés."
+            "You don't have any completed appointments yet."
           )}
         </TabsContent>
 
@@ -397,7 +394,7 @@ export function ClientAppointmentsPage() {
             cancelledQuery.isLoading,
             cancelledQuery.error as Error | null,
             cancelledQuery.refetch,
-            "Vous n'avez aucun rendez-vous annulé."
+            "You don't have any cancelled appointments."
           )}
         </TabsContent>
       </Tabs>

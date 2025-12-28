@@ -1,8 +1,12 @@
 /**
- * ForgotPasswordPage
+ * ForgotPasswordPage Component
  * 
- * Page de récupération de mot de passe.
- * Permet à l'utilisateur de demander un email de réinitialisation.
+ * Password recovery request page.
+ * Features:
+ * - Email validation
+ * - Clear user feedback
+ * - Success/error states
+ * - Security best practices (no email enumeration)
  */
 
 import { useState } from 'react';
@@ -18,14 +22,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { forgotPassword } from '@/services/auth.service';
 import { ROUTES } from '@/lib/constants';
-import type { ForgotPasswordDto } from '@/types';
 
 // ==========================================
-// SCHEMA
+// VALIDATION SCHEMA
 // ==========================================
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Adresse email invalide'),
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address'),
 });
 
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
@@ -36,7 +42,6 @@ type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const {
     register,
@@ -48,11 +53,10 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
     try {
-      setError(null);
-      await forgotPassword(data.email as unknown as ForgotPasswordDto);
+      await forgotPassword({ email: data.email } as any);
       setIsSubmitted(true);
     } catch (err) {
-      // On affiche toujours un message de succès pour éviter l'énumération des emails
+      // Always show success to prevent email enumeration
       setIsSubmitted(true);
     }
   };
@@ -68,22 +72,22 @@ export default function ForgotPasswordPage() {
           <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <CheckCircle className="h-6 w-6 text-green-600" />
           </div>
-          <CardTitle>Email envoyé !</CardTitle>
+          <CardTitle>Check Your Email</CardTitle>
           <CardDescription>
-            Si un compte existe avec cette adresse email, vous recevrez un lien de réinitialisation dans quelques minutes.
+            If an account exists with this email address, you will receive password reset instructions shortly.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground text-center space-y-2">
-            <p>Vérifiez votre boîte de réception et vos spams.</p>
-            <p>Le lien expire dans 1 heure.</p>
+            <p>Please check your inbox and spam folder.</p>
+            <p>The reset link expires in 1 hour.</p>
           </div>
           
           <div className="flex flex-col gap-2">
             <Button asChild variant="outline" className="w-full">
               <Link to={ROUTES.LOGIN}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Retour à la connexion
+                Back to Sign In
               </Link>
             </Button>
           </div>
@@ -102,27 +106,24 @@ export default function ForgotPasswordPage() {
         <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
           <Mail className="h-6 w-6 text-primary" />
         </div>
-        <CardTitle>Mot de passe oublié ?</CardTitle>
+        <CardTitle>Forgot Password?</CardTitle>
         <CardDescription>
-          Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+          Enter your email address and we'll send you a link to reset your password.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {error && (
-            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-              {error}
-            </div>
-          )}
-
           <div className="space-y-2">
-            <Label htmlFor="email">Adresse email</Label>
+            <Label htmlFor="email">Email Address</Label>
             <Input
               id="email"
               type="email"
-              placeholder="exemple@email.com"
-              {...register('email')}
+              placeholder="example@email.com"
+              autoComplete="email"
+              leftIcon={<Mail className="h-4 w-4" />}
               disabled={isSubmitting}
+              error={!!errors.email}
+              {...register('email')}
             />
             {errors.email && (
               <p className="text-sm text-destructive">{errors.email.message}</p>
@@ -133,20 +134,20 @@ export default function ForgotPasswordPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Envoi en cours...
+                Sending...
               </>
             ) : (
-              'Envoyer le lien de réinitialisation'
+              'Send Reset Link'
             )}
           </Button>
 
           <div className="text-center">
             <Link
               to={ROUTES.LOGIN}
-              className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+              className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1 transition-colors"
             >
               <ArrowLeft className="h-3 w-3" />
-              Retour à la connexion
+              Back to Sign In
             </Link>
           </div>
         </form>

@@ -1,11 +1,11 @@
 /**
- * MessagesPage (Prestataire)
- * CORRIGÉ - Validation des dates
+ * MessagesPage (Provider)
+ * CORRECTED - Date validation
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { format, isToday, isYesterday, isValid, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import {
   MessageSquare,
   Search,
@@ -63,11 +63,11 @@ import {
 import type { Message } from "@/types";
 
 // ==========================================
-// HELPERS - avec validation de date
+// HELPERS - with date validation
 // ==========================================
 
 /**
- * Parse une date de manière sécurisée
+ * Parse a date safely
  */
 function safeParseDate(
   dateValue: string | Date | null | undefined
@@ -104,9 +104,9 @@ function formatMessageTime(
       return format(date, "HH:mm");
     }
     if (isYesterday(date)) {
-      return "Hier";
+      return "Yesterday";
     }
-    return format(date, "d MMM", { locale: fr });
+    return format(date, "MMM d", { locale: enUS });
   } catch {
     return "";
   }
@@ -120,12 +120,12 @@ function formatMessageDate(
 
   try {
     if (isToday(date)) {
-      return "Aujourd'hui";
+      return "Today";
     }
     if (isYesterday(date)) {
-      return "Hier";
+      return "Yesterday";
     }
-    return format(date, "EEEE d MMMM", { locale: fr });
+    return format(date, "EEEE, MMMM d", { locale: enUS });
   } catch {
     return "";
   }
@@ -143,7 +143,7 @@ function formatBubbleTime(dateValue: string | Date | null | undefined): string {
 }
 
 /**
- * Normalise une date en string ISO
+ * Normalize a date to ISO string
  */
 function normalizeDateToISO(
   dateValue: string | Date | null | undefined
@@ -236,7 +236,7 @@ function ConversationItem({
             )}
           >
             {isFromMe && (
-              <span className="text-muted-foreground">Vous: </span>
+              <span className="text-muted-foreground">You: </span>
             )}
             {conversation.lastMessage.content}
           </p>
@@ -495,7 +495,7 @@ export default function MessagesPage() {
     return name.includes(searchQuery.toLowerCase());
   });
 
-  // Send message - avec normalisation de la date
+  // Send message - with date normalization
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
@@ -506,7 +506,7 @@ export default function MessagesPage() {
         content: newMessage,
       });
 
-      // Normaliser createdAt
+      // Normalize createdAt
       const normalizedMessage: Message = {
         ...sentMessage,
         createdAt: normalizeDateToISO(sentMessage.createdAt),
@@ -555,7 +555,7 @@ export default function MessagesPage() {
     setIsFlagging(true);
     try {
       await messagesService.flagMessage(messageToFlag.id, flagReason);
-      showSuccess("Message signalé");
+      showSuccess("Message reported");
       setFlagDialogOpen(false);
       setMessageToFlag(null);
       setFlagReason("");
@@ -586,10 +586,8 @@ export default function MessagesPage() {
           <h1 className="text-2xl font-bold">Messages</h1>
           <p className="text-muted-foreground">
             {totalUnread > 0
-              ? `${totalUnread} message${totalUnread > 1 ? "s" : ""} non lu${
-                  totalUnread > 1 ? "s" : ""
-                }`
-              : "Communiquez avec vos clients"}
+              ? `${totalUnread} unread message${totalUnread > 1 ? "s" : ""}`
+              : "Communicate with your clients"}
           </p>
         </div>
         <Button
@@ -601,7 +599,7 @@ export default function MessagesPage() {
           <RefreshCw
             className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")}
           />
-          Actualiser
+          Refresh
         </Button>
       </div>
 
@@ -614,7 +612,7 @@ export default function MessagesPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -626,7 +624,7 @@ export default function MessagesPage() {
           <ScrollArea className="flex-1">
             {filteredConversations.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground">
-                Aucune conversation
+                No conversations
               </div>
             ) : (
               filteredConversations.map((conversation) => (
@@ -667,7 +665,7 @@ export default function MessagesPage() {
                     </h3>
                     {selectedConversation.appointment.service && (
                       <p className="text-sm text-muted-foreground">
-                        RDV: {selectedConversation.appointment.service.name}
+                        Appointment: {selectedConversation.appointment.service.name}
                       </p>
                     )}
                   </div>
@@ -682,16 +680,16 @@ export default function MessagesPage() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem>
                       <User className="h-4 w-4 mr-2" />
-                      Voir le profil
+                      View profile
                     </DropdownMenuItem>
                     <DropdownMenuItem>
                       <BellOff className="h-4 w-4 mr-2" />
-                      Désactiver les notifications
+                      Disable notifications
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem>
                       <Archive className="h-4 w-4 mr-2" />
-                      Archiver
+                      Archive
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -735,7 +733,7 @@ export default function MessagesPage() {
                 <div className="flex items-center gap-2">
                   <Input
                     ref={inputRef}
-                    placeholder="Écrivez votre message..."
+                    placeholder="Write your message..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -758,8 +756,8 @@ export default function MessagesPage() {
             <div className="flex-1 flex items-center justify-center">
               <EmptyState
                 icon={<MessageSquare className="h-12 w-12" />}
-                title="Sélectionnez une conversation"
-                description="Choisissez une conversation dans la liste pour commencer à discuter."
+                title="Select a conversation"
+                description="Choose a conversation from the list to start chatting."
               />
             </div>
           )}
@@ -770,10 +768,9 @@ export default function MessagesPage() {
       <Dialog open={flagDialogOpen} onOpenChange={setFlagDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Signaler le message</DialogTitle>
+            <DialogTitle>Report message</DialogTitle>
             <DialogDescription>
-              Expliquez pourquoi ce message devrait être examiné par notre
-              équipe.
+              Explain why this message should be examined by our team.
             </DialogDescription>
           </DialogHeader>
 
@@ -784,10 +781,10 @@ export default function MessagesPage() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="reason">Raison du signalement</Label>
+            <Label htmlFor="reason">Report reason</Label>
             <Textarea
               id="reason"
-              placeholder="Décrivez le problème..."
+              placeholder="Describe the problem..."
               value={flagReason}
               onChange={(e) => setFlagReason(e.target.value)}
               rows={4}
@@ -796,7 +793,7 @@ export default function MessagesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setFlagDialogOpen(false)}>
-              Annuler
+              Cancel
             </Button>
             <Button
               onClick={submitFlag}
@@ -806,10 +803,10 @@ export default function MessagesPage() {
               {isFlagging ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Envoi...
+                  Sending...
                 </>
               ) : (
-                "Signaler"
+                "Report"
               )}
             </Button>
           </DialogFooter>

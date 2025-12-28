@@ -1,14 +1,14 @@
 /**
- * ProfilePage (Prestataire)
+ * ProfilePage (Provider)
  *
- * Page de visualisation et d'édition du profil public du prestataire.
- * Permet de voir comment les clients voient son profil.
+ * Viewing and editing the provider's public profile page.
+ * Allows seeing how clients view their profile.
  */
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import {
   User,
   MapPin,
@@ -61,13 +61,13 @@ import type { Prestataire, Service, Review, OpeningHours } from "@/types";
 // ==========================================
 
 const daysOfWeek: Record<string, string> = {
-  monday: "Lundi",
-  tuesday: "Mardi",
-  wednesday: "Mercredi",
-  thursday: "Jeudi",
-  friday: "Vendredi",
-  saturday: "Samedi",
-  sunday: "Dimanche",
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
 };
 
 // ==========================================
@@ -79,19 +79,19 @@ interface ProfileCompletenessProps {
 }
 
 function ProfileCompleteness({ profile }: ProfileCompletenessProps) {
-  // Calculer la complétude du profil
+  // Calculate profile completeness
   const checks = [
-    { label: "Photo de profil", done: !!profile.avatar },
+    { label: "Profile Photo", done: !!profile.avatar },
     { label: "Bio", done: !!profile.bio && profile.bio.length > 20 },
-    { label: "Numéro de téléphone", done: !!profile.phone },
-    { label: "Adresse", done: !!profile.address },
-    { label: "Ville", done: !!profile.city },
+    { label: "Phone Number", done: !!profile.phone },
+    { label: "Address", done: !!profile.address },
+    { label: "City", done: !!profile.city },
     {
-      label: "Catégories",
+      label: "Categories",
       done: profile.categories && profile.categories.length > 0,
     },
-    { label: "Horaires d'ouverture", done: !!profile.openingHours },
-    { label: "Site web", done: !!profile.website },
+    { label: "Opening Hours", done: !!profile.openingHours },
+    { label: "Website", done: !!profile.website },
   ];
 
   const completedCount = checks.filter((c) => c.done).length;
@@ -101,7 +101,7 @@ function ProfileCompleteness({ profile }: ProfileCompletenessProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Complétion du profil</CardTitle>
+        <CardTitle className="text-lg">Profile Completion</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
@@ -110,19 +110,19 @@ function ProfileCompleteness({ profile }: ProfileCompletenessProps) {
               {completeness}%
             </span>
             <Badge variant={completeness >= 80 ? "default" : "secondary"}>
-              {completeness >= 80 ? "Bon" : "À améliorer"}
+              {completeness >= 80 ? "Good" : "Needs Improvement"}
             </Badge>
           </div>
           <Progress value={completeness} className="h-2" />
           {missingItems.length > 0 && (
             <div className="text-sm text-muted-foreground">
-              <p className="font-medium mb-1">Éléments manquants :</p>
+              <p className="font-medium mb-1">Missing Items:</p>
               <ul className="list-disc list-inside space-y-0.5">
                 {missingItems.slice(0, 3).map((item) => (
                   <li key={item}>{item}</li>
                 ))}
                 {missingItems.length > 3 && (
-                  <li>+{missingItems.length - 3} autres</li>
+                  <li>+{missingItems.length - 3} more</li>
                 )}
               </ul>
             </div>
@@ -155,7 +155,7 @@ function StatsCards({ profile, servicesCount }: StatsCardsProps) {
               <p className="text-2xl font-bold">
                 {Number(profile.averageRating ?? 0).toFixed(1)}
               </p>
-              <p className="text-sm text-muted-foreground">Note moyenne</p>
+              <p className="text-sm text-muted-foreground">Average Rating</p>
             </div>
           </div>
         </CardContent>
@@ -169,7 +169,7 @@ function StatsCards({ profile, servicesCount }: StatsCardsProps) {
             </div>
             <div>
               <p className="text-2xl font-bold">{profile.totalReviews ?? 0}</p>
-              <p className="text-sm text-muted-foreground">Avis clients</p>
+              <p className="text-sm text-muted-foreground">Client Reviews</p>
             </div>
           </div>
         </CardContent>
@@ -185,7 +185,7 @@ function StatsCards({ profile, servicesCount }: StatsCardsProps) {
               <p className="text-2xl font-bold">
                 {profile.totalAppointments ?? 0}
               </p>
-              <p className="text-sm text-muted-foreground">RDV réalisés</p>
+              <p className="text-sm text-muted-foreground">Completed</p>
             </div>
           </div>
         </CardContent>
@@ -199,7 +199,7 @@ function StatsCards({ profile, servicesCount }: StatsCardsProps) {
             </div>
             <div>
               <p className="text-2xl font-bold">{servicesCount}</p>
-              <p className="text-sm text-muted-foreground">Services actifs</p>
+              <p className="text-sm text-muted-foreground">Active Services</p>
             </div>
           </div>
         </CardContent>
@@ -218,7 +218,7 @@ interface WorkingHoursCardProps {
 
 function WorkingHoursCard({ openingHours }: WorkingHoursCardProps) {
   const formatDayHours = (dayHours?: { start: string; end: string }[]) => {
-    if (!dayHours || dayHours.length === 0) return "Fermé";
+    if (!dayHours || dayHours.length === 0) return "Closed";
     return dayHours.map((h) => `${h.start} - ${h.end}`).join(", ");
   };
 
@@ -227,13 +227,13 @@ function WorkingHoursCard({ openingHours }: WorkingHoursCardProps) {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Clock className="h-5 w-5" />
-          Horaires d'ouverture
+          Opening Hours
         </CardTitle>
       </CardHeader>
       <CardContent>
         {!openingHours ? (
           <p className="text-sm text-muted-foreground">
-            Horaires non renseignés
+            Hours not specified
           </p>
         ) : (
           <div className="space-y-2 text-sm">
@@ -245,7 +245,7 @@ function WorkingHoursCard({ openingHours }: WorkingHoursCardProps) {
                   <span className="text-muted-foreground">{dayName}</span>
                   <span
                     className={
-                      displayHours !== "Fermé"
+                      displayHours !== "Closed"
                         ? "font-medium"
                         : "text-muted-foreground"
                     }
@@ -278,11 +278,11 @@ function ServicesList({ services, limit }: ServicesListProps) {
     return (
       <EmptyState
         icon={Award}
-        title="Aucun service"
-        description="Vous n'avez pas encore ajouté de services"
+        title="No Services"
+        description="You haven't added any services yet"
         action={
           <Button asChild>
-            <Link to={ROUTES.PRESTATAIRE_SERVICES}>Ajouter un service</Link>
+            <Link to={ROUTES.PRESTATAIRE_SERVICES}>Add a Service</Link>
           </Button>
         }
       />
@@ -324,8 +324,8 @@ function ReviewsList({ reviews }: ReviewsListProps) {
     return (
       <EmptyState
         icon={Star}
-        title="Aucun avis"
-        description="Vous n'avez pas encore reçu d'avis"
+        title="No Reviews"
+        description="You haven't received any reviews yet"
       />
     );
   }
@@ -355,11 +355,11 @@ function ReviewsList({ reviews }: ReviewsListProps) {
             <p className="text-muted-foreground text-sm">{review.comment}</p>
           )}
           <p className="text-xs text-muted-foreground mt-2">
-            {format(new Date(review.createdAt), "d MMMM yyyy", { locale: fr })}
+            {format(new Date(review.createdAt), "MMMM d, yyyy", { locale: enUS })}
           </p>
           {review.prestataireResponse && (
             <div className="mt-3 p-2 bg-muted rounded text-sm">
-              <p className="font-medium text-xs mb-1">Votre réponse :</p>
+              <p className="font-medium text-xs mb-1">Your Response:</p>
               <p className="text-muted-foreground">
                 {review.prestataireResponse}
               </p>
@@ -379,7 +379,7 @@ export default function PrestataireProfilePage() {
   const [activeTab, setActiveTab] = useState("overview");
 
   // ==========================================
-  // HOOKS - Connexion au backend
+  // HOOKS - Backend connection
   // ==========================================
 
   const {
@@ -406,10 +406,10 @@ export default function PrestataireProfilePage() {
       <div className="flex items-center justify-center py-12">
         <EmptyState
           icon={User}
-          title="Erreur de chargement"
-          description="Impossible de charger votre profil. Veuillez réessayer."
+          title="Loading Error"
+          description="Unable to load your profile. Please try again."
           action={
-            <Button onClick={() => window.location.reload()}>Réessayer</Button>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
           }
         />
       </div>
@@ -428,23 +428,23 @@ export default function PrestataireProfilePage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Mon profil public</h1>
+          <h1 className="text-2xl font-bold">My Public Profile</h1>
           <p className="text-muted-foreground">
-            Gérez comment les clients voient votre profil
+            Manage how clients see your profile
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to={`/prestataire/${profile.id}`} target="_blank">
               <Eye className="h-4 w-4 mr-2" />
-              Voir en tant que client
+              View as Client
               <ExternalLink className="h-3 w-3 ml-1" />
             </Link>
           </Button>
           <Button asChild>
             <Link to={ROUTES.PRESTATAIRE_SETTINGS}>
               <Edit className="h-4 w-4 mr-2" />
-              Modifier le profil
+              Edit Profile
             </Link>
           </Button>
         </div>
@@ -494,7 +494,7 @@ export default function PrestataireProfilePage() {
                     {Number(profile.averageRating ?? 0).toFixed(1)}
                   </span>
                   <span className="text-muted-foreground">
-                    ({profile.totalReviews ?? 0} avis)
+                    ({profile.totalReviews ?? 0} reviews)
                   </span>
                 </div>
 
@@ -563,18 +563,18 @@ export default function PrestataireProfilePage() {
         <div className="lg:col-span-2 space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
-              <TabsTrigger value="overview">Aperçu</TabsTrigger>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="services">
                 Services ({activeServices.length})
               </TabsTrigger>
-              <TabsTrigger value="reviews">Avis ({reviews.length})</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 space-y-6">
               {/* Bio */}
               <Card>
                 <CardHeader>
-                  <CardTitle>À propos</CardTitle>
+                  <CardTitle>About</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {profile.bio ? (
@@ -583,12 +583,12 @@ export default function PrestataireProfilePage() {
                     </p>
                   ) : (
                     <p className="text-muted-foreground italic">
-                      Aucune description renseignée.{" "}
+                      No description provided.{" "}
                       <Link
                         to={ROUTES.PRESTATAIRE_SETTINGS}
                         className="text-primary hover:underline"
                       >
-                        Ajouter une bio
+                        Add a bio
                       </Link>
                     </p>
                   )}
@@ -598,11 +598,11 @@ export default function PrestataireProfilePage() {
               {/* Quick Services */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Services populaires</CardTitle>
+                  <CardTitle>Popular Services</CardTitle>
                   <CardDescription>
                     {activeServices.length > 0
-                      ? "Vos 3 services les plus demandés"
-                      : "Ajoutez des services pour commencer"}
+                      ? "Your top 3 most requested services"
+                      : "Add services to get started"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -621,15 +621,15 @@ export default function PrestataireProfilePage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>Tous les services</CardTitle>
+                    <CardTitle>All Services</CardTitle>
                     <CardDescription>
-                      {activeServices.length} services actifs
+                      {activeServices.length} active services
                     </CardDescription>
                   </div>
                   <Button asChild variant="outline" size="sm">
                     <Link to={ROUTES.PRESTATAIRE_SERVICES}>
                       <Edit className="h-4 w-4 mr-2" />
-                      Gérer
+                      Manage
                     </Link>
                   </Button>
                 </CardHeader>
@@ -649,14 +649,14 @@ export default function PrestataireProfilePage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>Avis récents</CardTitle>
+                    <CardTitle>Recent Reviews</CardTitle>
                     <CardDescription>
-                      Les derniers avis de vos clients
+                      Latest reviews from your clients
                     </CardDescription>
                   </div>
                   <Button asChild variant="outline" size="sm">
                     <Link to={ROUTES.PRESTATAIRE_REVIEWS}>
-                      Voir tous les avis
+                      View All Reviews
                     </Link>
                   </Button>
                 </CardHeader>
@@ -675,18 +675,17 @@ export default function PrestataireProfilePage() {
         </div>
       </div>
 
-      {/* Alerte statut */}
+      {/* Status Alerts */}
       {profile.status === "PENDING" && (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-6 flex items-start gap-4">
             <Clock className="h-6 w-6 text-amber-600 shrink-0" />
             <div>
               <h3 className="font-semibold text-amber-800">
-                Compte en attente de validation
+                Account Pending Validation
               </h3>
               <p className="text-sm text-amber-700 mt-1">
-                Votre profil est en cours de vérification par notre équipe. Vous
-                recevrez un email dès que votre compte sera activé.
+                Your profile is being reviewed by our team. You will receive an email once your account is activated.
               </p>
             </div>
           </CardContent>
@@ -698,10 +697,9 @@ export default function PrestataireProfilePage() {
           <CardContent className="p-6 flex items-start gap-4">
             <Clock className="h-6 w-6 text-red-600 shrink-0" />
             <div>
-              <h3 className="font-semibold text-red-800">Compte suspendu</h3>
+              <h3 className="font-semibold text-red-800">Account Suspended</h3>
               <p className="text-sm text-red-700 mt-1">
-                Votre compte a été suspendu. Veuillez contacter le support pour
-                plus d'informations.
+                Your account has been suspended. Please contact support for more information.
               </p>
             </div>
           </CardContent>

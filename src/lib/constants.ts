@@ -1,52 +1,51 @@
 /**
- * Constantes de l'application BookMe
+ * Application Constants
  * 
- * Ces valeurs sont alignées avec celles du backend
- * pour assurer la cohérence des données.
+ * All constants aligned with backend for data consistency.
  */
 
 // ==========================================
-// CATÉGORIES PROFESSIONNELLES
+// PROFESSIONAL CATEGORIES
 // ==========================================
 
 /**
- * Liste des catégories de services disponibles
- * Utilisée pour les filtres et la création de profil prestataire
+ * Available service categories
+ * Used for filters and provider profile creation
  */
 export const PROFESSIONAL_CATEGORIES = [
-  'Coiffure',
-  'Esthétique',
+  'Hair Salon',
+  'Beauty',
   'Massage',
-  'Bien-être',
-  'Sport & Fitness',
-  'Médical',
-  'Paramédical',
-  'Conseil',
+  'Wellness',
+  'Sports & Fitness',
+  'Medical',
+  'Paramedical',
+  'Consulting',
   'Coaching',
-  'Formation',
-  'Juridique',
-  'Comptabilité',
-  'Immobilier',
-  'Artisanat',
-  'Photographie',
-  'Événementiel',
-  'Autre',
+  'Training',
+  'Legal',
+  'Accounting',
+  'Real Estate',
+  'Handcraft',
+  'Photography',
+  'Events',
+  'Other',
 ] as const;
 
 export type ProfessionalCategory = typeof PROFESSIONAL_CATEGORIES[number];
 
 // ==========================================
-// JOURS DE LA SEMAINE
+// DAYS OF WEEK
 // ==========================================
 
 export const DAYS_OF_WEEK = [
-  { value: 0, label: 'Dimanche', shortLabel: 'Dim' },
-  { value: 1, label: 'Lundi', shortLabel: 'Lun' },
-  { value: 2, label: 'Mardi', shortLabel: 'Mar' },
-  { value: 3, label: 'Mercredi', shortLabel: 'Mer' },
-  { value: 4, label: 'Jeudi', shortLabel: 'Jeu' },
-  { value: 5, label: 'Vendredi', shortLabel: 'Ven' },
-  { value: 6, label: 'Samedi', shortLabel: 'Sam' },
+  { value: 0, label: 'Sunday', shortLabel: 'Sun' },
+  { value: 1, label: 'Monday', shortLabel: 'Mon' },
+  { value: 2, label: 'Tuesday', shortLabel: 'Tue' },
+  { value: 3, label: 'Wednesday', shortLabel: 'Wed' },
+  { value: 4, label: 'Thursday', shortLabel: 'Thu' },
+  { value: 5, label: 'Friday', shortLabel: 'Fri' },
+  { value: 6, label: 'Saturday', shortLabel: 'Sat' },
 ] as const;
 
 export const DAYS_OF_WEEK_KEYS = [
@@ -60,18 +59,18 @@ export const DAYS_OF_WEEK_KEYS = [
 ] as const;
 
 // ==========================================
-// OPTIONS DE TRI
+// SORT OPTIONS
 // ==========================================
 
 export const SORT_OPTIONS = [
-  { value: 'rating', label: 'Note moyenne' },
-  { value: 'reviews', label: 'Nombre d\'avis' },
-  { value: 'price', label: 'Prix' },
-  { value: 'name', label: 'Nom' },
+  { value: 'rating', label: 'Average Rating' },
+  { value: 'reviews', label: 'Number of Reviews' },
+  { value: 'price', label: 'Price' },
+  { value: 'name', label: 'Name' },
 ] as const;
 
 // ==========================================
-// OPTIONS DE PAGINATION
+// PAGINATION OPTIONS
 // ==========================================
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
@@ -97,38 +96,38 @@ export const VALIDATION = {
 } as const;
 
 // ==========================================
-// ICÔNES DE BADGES
+// BADGE INFO
 // ==========================================
 
 export const BADGE_INFO = {
   TOP_RATED: {
     icon: '🏆',
-    label: 'Top Prestataire',
-    description: 'Note ≥ 4.5 avec minimum 10 avis',
+    label: 'Top Provider',
+    description: 'Rating ≥ 4.5 with minimum 10 reviews',
     color: 'bg-yellow-100 text-yellow-800',
   },
   RESPONSIVE: {
     icon: '⚡',
-    label: 'Réactif',
-    description: 'Répond rapidement aux demandes',
+    label: 'Responsive',
+    description: 'Responds quickly to requests',
     color: 'bg-blue-100 text-blue-800',
   },
   RELIABLE: {
     icon: '💎',
-    label: 'Fiable',
-    description: 'Taux d\'annulation < 5%',
+    label: 'Reliable',
+    description: 'Cancellation rate < 5%',
     color: 'bg-green-100 text-green-800',
   },
   POPULAR: {
     icon: '🌟',
-    label: 'Populaire',
-    description: 'Plus de 50 rendez-vous sur 3 mois',
+    label: 'Popular',
+    description: '50+ appointments in 3 months',
     color: 'bg-purple-100 text-purple-800',
   },
 } as const;
 
 // ==========================================
-// TYPES DE NOTIFICATION
+// NOTIFICATION INFO
 // ==========================================
 
 export const NOTIFICATION_INFO = {
@@ -170,7 +169,7 @@ export const NOTIFICATION_INFO = {
 } as const;
 
 // ==========================================
-// ROUTES DE L'APPLICATION
+// ROUTES
 // ==========================================
 
 export const ROUTES = {
@@ -195,7 +194,7 @@ export const ROUTES = {
   CLIENT_PROFILE: '/client/profile',
   CLIENT_NOTIFICATIONS: '/client/notifications',
   
-  // Prestataire
+  // Provider
   PRESTATAIRE_DASHBOARD: '/prestataire/dashboard',
   PRESTATAIRE_PROFILE: '/prestataire/profile',
   PRESTATAIRE_SERVICES: '/prestataire/services',
@@ -217,49 +216,51 @@ export const ROUTES = {
 } as const;
 
 // ==========================================
-// DURÉES DE CACHE (en millisecondes)
+// CACHE DURATIONS (in milliseconds)
 // ==========================================
 
 export const CACHE_TIME = {
   SHORT: 1 * 60 * 1000,      // 1 minute
   MEDIUM: 5 * 60 * 1000,     // 5 minutes
   LONG: 30 * 60 * 1000,      // 30 minutes
-  VERY_LONG: 60 * 60 * 1000, // 1 heure
+  VERY_LONG: 60 * 60 * 1000, // 1 hour
 } as const;
 
 // ==========================================
-// MESSAGES D'ERREUR
+// ERROR MESSAGES
 // ==========================================
 
 export const ERROR_MESSAGES = {
-  GENERIC: 'Une erreur est survenue. Veuillez réessayer.',
-  NETWORK: 'Problème de connexion. Vérifiez votre réseau.',
-  UNAUTHORIZED: 'Session expirée. Veuillez vous reconnecter.',
-  FORBIDDEN: 'Vous n\'avez pas les droits pour effectuer cette action.',
-  NOT_FOUND: 'La ressource demandée n\'existe pas.',
-  VALIDATION: 'Les données saisies ne sont pas valides.',
+  GENERIC: 'An error occurred. Please try again.',
+  NETWORK: 'Network error. Please check your connection.',
+  UNAUTHORIZED: 'Session expired. Please sign in again.',
+  FORBIDDEN: 'You do not have permission to perform this action.',
+  NOT_FOUND: 'The requested resource was not found.',
+  VALIDATION: 'The provided data is invalid.',
+  SERVER_ERROR: 'Server error. Please try again later.',
+  TIMEOUT: 'Request timed out. Please try again.',
 } as const;
 
 // ==========================================
-// MESSAGES DE SUCCÈS
+// SUCCESS MESSAGES
 // ==========================================
 
 export const SUCCESS_MESSAGES = {
-  LOGIN: 'Connexion réussie !',
-  LOGOUT: 'Déconnexion réussie.',
-  REGISTER: 'Inscription réussie ! Vérifiez votre email.',
-  PASSWORD_RESET_REQUEST: 'Email de réinitialisation envoyé.',
-  PASSWORD_RESET: 'Mot de passe modifié avec succès.',
-  PROFILE_UPDATE: 'Profil mis à jour avec succès.',
-  BOOKING: 'Rendez-vous réservé avec succès !',
-  BOOKING_CANCEL: 'Rendez-vous annulé.',
-  REVIEW_CREATE: 'Merci pour votre avis !',
-  REVIEW_UPDATE: 'Avis mis à jour.',
-  MESSAGE_SENT: 'Message envoyé.',
-  SERVICE_CREATE: 'Service créé.',
-  SERVICE_UPDATE: 'Service mis à jour.',
-  SERVICE_DELETE: 'Service supprimé.',
-  SLOT_CREATE: 'Créneau créé.',
-  SLOT_UPDATE: 'Créneau mis à jour.',
-  SLOT_DELETE: 'Créneau supprimé.',
+  LOGIN: 'Successfully signed in!',
+  LOGOUT: 'Successfully signed out.',
+  REGISTER: 'Registration successful! Please check your email.',
+  PASSWORD_RESET_REQUEST: 'Password reset email sent.',
+  PASSWORD_RESET: 'Password successfully changed.',
+  PROFILE_UPDATE: 'Profile updated successfully.',
+  BOOKING: 'Appointment booked successfully!',
+  BOOKING_CANCEL: 'Appointment cancelled.',
+  REVIEW_CREATE: 'Thank you for your review!',
+  REVIEW_UPDATE: 'Review updated.',
+  MESSAGE_SENT: 'Message sent.',
+  SERVICE_CREATE: 'Service created.',
+  SERVICE_UPDATE: 'Service updated.',
+  SERVICE_DELETE: 'Service deleted.',
+  SLOT_CREATE: 'Time slot created.',
+  SLOT_UPDATE: 'Time slot updated.',
+  SLOT_DELETE: 'Time slot deleted.',
 } as const;

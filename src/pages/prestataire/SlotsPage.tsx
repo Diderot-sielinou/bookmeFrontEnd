@@ -1,95 +1,132 @@
 /**
- * Page Mes Créneaux (Prestataire)
- * 
- * Gestion des disponibilités :
- * - Vue calendrier des créneaux
- * - Création manuelle ou récurrente
- * - Blocage de périodes
+ * SlotsPage (Provider)
+ *
+ * Time slot management page for providers.
+ * Allows creating, editing, and deleting availability slots.
  */
 
-import { useState, useMemo } from 'react';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
-  Plus,
-  ChevronLeft,
-  ChevronRight,
+  format,
+  startOfWeek,
+  addWeeks,
+  subWeeks,
+  addDays,
+  isSameDay,
+  parseISO,
+  startOfDay,
+} from "date-fns";
+import { enUS } from "date-fns/locale";
+import {
   Calendar as CalendarIcon,
   Clock,
+  Plus,
+  Edit2,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Copy,
   Ban,
-  RefreshCw,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { cn } from '@/lib/utils';
-import { formatTime } from '@/lib/utils';
-import { useSlots } from '@/hooks/useSlots';
-import { SlotStatus } from '@/types';
-import type { Slot } from '@/types';
+import { formatTime } from "@/lib/utils";
+import { DAYS_OF_WEEK } from "@/lib/constants";
+import { SlotStatus } from "@/types";
+import type { Slot } from "@/types";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Input,
   Label,
-  Badge,
+  Switch,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Checkbox,
-  Calendar,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+  Badge,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui';
-import { showSuccess, showError } from '@/components/ui/toast';
-import { Spinner } from '@/components/ui/spinner';
-import { EmptyState } from '@/components/shared';
+} from "@/components/ui/select";
+import { showSuccess, showError } from "@/components/ui/toast";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { EmptyState } from "@/components/shared";
+
+// Hooks
+import {
+  useMySlots,
+  useCreateSlot,
+  useCreateRecurringSlots,
+  useUpdateSlot,
+  useDeleteSlot,
+} from "@/hooks/useSlots";
 
 // ==========================================
 // VALIDATION
 // ==========================================
 
-const slotSchema = z.object({
-  date: z.date({ required_error: 'Date requise' }),
-  startTime: z.string().min(1, 'Heure de début requise'),
-  endTime: z.string().min(1, 'Heure de fin requise'),
-});
+const slotSchema = z
+  .object({
+    date: z.string().min(1, "Date required"),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid format (HH:mm)"),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid format (HH:mm)"),
+  })
+  .refine(
+    (data) => {
+      const [startH, startM] = data.startTime.split(":").map(Number);
+      const [endH, endM] = data.endTime.split(":").map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      return endMinutes > startMinutes;
+    },
+    {
+      message: "End time must be after start time",
+      path: ["endTime"],
+    }
+  );
 
 const recurringSchema = z.object({
-  startDate: z.date({ required_error: 'Date de début requise' }),
-  endDate: z.date({ required_error: 'Date de fin requise' }),
-  startTime: z.string().min(1, 'Heure de début requise'),
-  endTime: z.string().min(1, 'Heure de fin requise'),
-  slotDuration: z.number().min(15, 'Minimum 15 minutes'),
-  breakDuration: z.number().min(0, 'Durée de pause invalide'),
-  daysOfWeek: z.array(z.number()).min(1, 'Sélectionnez au moins un jour'),
+  startDate: z.string().min(1, "Start date required"),
+  endDate: z.string().min(1, "End date required"),
+  daysOfWeek: z.array(z.number()).min(1, "Select at least one day"),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid format"),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid format"),
+  slotDuration: z.number().min(15, "Minimum 15 minutes").max(480, "Maximum 8 hours"),
 });
 
 type SlotFormData = z.infer<typeof slotSchema>;
 type RecurringFormData = z.infer<typeof recurringSchema>;
 
 // ==========================================
-// STATUS CONFIG
+// HELPERS
 // ==========================================
 
-const statusConfig: Record<SlotStatus, { label: string; className: string }> = {
-  [SlotStatus.AVAILABLE]: { label: 'Disponible', className: 'bg-green-100 text-green-700 border-green-200' },
-  [SlotStatus.RESERVED]: { label: 'Réservé', className: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
-  [SlotStatus.BLOCKED]: { label: 'Bloqué', className: 'bg-gray-100 text-gray-700 border-gray-200' },
+const getStatusConfig = (status: SlotStatus) => {
+  switch (status) {
+    case SlotStatus.AVAILABLE:
+      return { label: "Available", className: "bg-green-100 text-green-800" };
+    case SlotStatus.RESERVED:
+      return { label: "Reserved", className: "bg-blue-100 text-blue-800" };
+    case SlotStatus.BLOCKED:
+      return { label: "Blocked", className: "bg-gray-100 text-gray-800" };
+    default:
+      return { label: "Unknown", className: "bg-gray-100 text-gray-800" };
+  }
 };
 
 // ==========================================
@@ -97,83 +134,65 @@ const statusConfig: Record<SlotStatus, { label: string; className: string }> = {
 // ==========================================
 
 interface WeekViewProps {
-  currentDate: Date;
+  weekStart: Date;
   slots: Slot[];
   onSlotClick: (slot: Slot) => void;
-  onDateClick: (date: Date) => void;
+  onCreateSlot: (date: Date) => void;
 }
 
-function WeekView({ currentDate, slots, onSlotClick, onDateClick }: WeekViewProps) {
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
-  const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+function WeekView({ weekStart, slots, onSlotClick, onCreateSlot }: WeekViewProps) {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Group slots by date
-  const slotsByDate = useMemo(() => {
-    const grouped: Record<string, Slot[]> = {};
-    slots.forEach((slot) => {
-      const dateKey = format(parseISO(slot.date), 'yyyy-MM-dd');
-      if (!grouped[dateKey]) grouped[dateKey] = [];
-      grouped[dateKey].push(slot);
-    });
-    // Sort slots by start time
-    Object.values(grouped).forEach((daySlots) => {
-      daySlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
-    });
-    return grouped;
-  }, [slots]);
+  const getSlotsByDate = (date: Date) => {
+    return slots.filter((slot) => isSameDay(parseISO(slot.date), date));
+  };
 
   return (
     <div className="grid grid-cols-7 gap-2">
-      {days.map((day) => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        const daySlots = slotsByDate[dateKey] || [];
+      {days.map((day, index) => {
+        const daySlots = getSlotsByDate(day);
         const isToday = isSameDay(day, new Date());
 
         return (
           <div
-            key={dateKey}
-            className={cn(
-              'min-h-[200px] border rounded-lg p-2',
-              isToday && 'border-cyan-500'
-            )}
+            key={index}
+            className={`border rounded-lg p-2 min-h-[200px] ${
+              isToday ? "border-cyan-500 bg-cyan-50" : ""
+            }`}
           >
-            {/* Day header */}
-            <button
-              onClick={() => onDateClick(day)}
-              className={cn(
-                'w-full text-center p-2 rounded-md hover:bg-accent transition-colors',
-                isToday && 'bg-cyan-50'
-              )}
-            >
-              <p className="text-xs text-muted-foreground">
-                {format(day, 'EEE', { locale: fr })}
+            <div className="text-center mb-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                {format(day, "EEE", { locale: enUS })}
               </p>
-              <p className={cn('text-lg font-semibold', isToday && 'text-cyan-600')}>
-                {format(day, 'd')}
+              <p className={`text-lg font-bold ${isToday ? "text-cyan-600" : ""}`}>
+                {format(day, "d")}
               </p>
-            </button>
+            </div>
 
-            {/* Slots */}
-            <div className="mt-2 space-y-1 max-h-[150px] overflow-y-auto">
+            <div className="space-y-1">
               {daySlots.map((slot) => {
-                const config = statusConfig[slot.status];
+                const config = getStatusConfig(slot.status);
                 return (
                   <button
                     key={slot.id}
                     onClick={() => onSlotClick(slot)}
-                    className={cn(
-                      'w-full text-left text-xs p-1.5 rounded border transition-colors hover:opacity-80',
-                      config.className
-                    )}
+                    className={`w-full text-xs p-1.5 rounded ${config.className} hover:opacity-80 transition-opacity`}
                   >
-                    <span className="font-medium">
+                    <div className="font-medium">
                       {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                    </span>
+                    </div>
+                    <div className="text-[10px]">{config.label}</div>
                   </button>
                 );
               })}
             </div>
+
+            <button
+              onClick={() => onCreateSlot(day)}
+              className="w-full mt-2 p-1.5 border border-dashed border-gray-300 rounded hover:border-cyan-500 hover:bg-cyan-50 transition-colors text-xs text-muted-foreground"
+            >
+              + Add slot
+            </button>
           </div>
         );
       })}
@@ -188,93 +207,125 @@ function WeekView({ currentDate, slots, onSlotClick, onDateClick }: WeekViewProp
 interface SlotDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedDate: Date | null;
+  slot: Slot | null;
+  initialDate?: Date;
   onSubmit: (data: SlotFormData) => Promise<void>;
   isLoading: boolean;
 }
 
-function SlotDialog({ open, onOpenChange, selectedDate, onSubmit, isLoading }: SlotDialogProps) {
+function SlotDialog({
+  open,
+  onOpenChange,
+  slot,
+  initialDate,
+  onSubmit,
+  isLoading,
+}: SlotDialogProps) {
+  const isEditing = !!slot;
+
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     reset,
     formState: { errors },
   } = useForm<SlotFormData>({
     resolver: zodResolver(slotSchema),
     defaultValues: {
-      date: selectedDate || new Date(),
-      startTime: '09:00',
-      endTime: '10:00',
+      date: initialDate
+        ? format(initialDate, "yyyy-MM-dd")
+        : format(new Date(), "yyyy-MM-dd"),
+      startTime: "09:00",
+      endTime: "10:00",
     },
   });
 
-  // Update date when selectedDate changes
-  useState(() => {
-    if (selectedDate) {
-      setValue('date', selectedDate);
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (slot) {
+      reset({
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      });
+    } else if (initialDate) {
+      reset({
+        date: format(initialDate, "yyyy-MM-dd"),
+        startTime: "09:00",
+        endTime: "10:00",
+      });
     }
-  });
+  }, [slot, initialDate, reset]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Ajouter un créneau</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Slot" : "New Slot"}</DialogTitle>
           <DialogDescription>
-            Créez un nouveau créneau de disponibilité
+            {isEditing
+              ? "Modify this time slot"
+              : "Create a new availability slot"}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {watch('date') ? format(watch('date'), 'PPP', { locale: fr }) : 'Sélectionner'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={watch('date')}
-                  onSelect={(date) => date && setValue('date', date)}
-                  locale={fr}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="date">Date *</Label>
+            <Input
+              id="date"
+              type="date"
+              {...register("date")}
+              error={!!errors.date}
+              disabled={isEditing}
+            />
+            {errors.date && (
+              <p className="text-sm text-destructive">{errors.date.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startTime">Début</Label>
+              <Label htmlFor="startTime">Start time *</Label>
               <Input
                 id="startTime"
                 type="time"
-                {...register('startTime')}
+                {...register("startTime")}
                 error={!!errors.startTime}
               />
+              {errors.startTime && (
+                <p className="text-sm text-destructive">
+                  {errors.startTime.message}
+                </p>
+              )}
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="endTime">Fin</Label>
+              <Label htmlFor="endTime">End time *</Label>
               <Input
                 id="endTime"
                 type="time"
-                {...register('endTime')}
+                {...register("endTime")}
                 error={!!errors.endTime}
               />
+              {errors.endTime && (
+                <p className="text-sm text-destructive">
+                  {errors.endTime.message}
+                </p>
+              )}
             </div>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
             </Button>
-            <Button type="submit" isLoading={isLoading}>
-              Créer le créneau
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isEditing ? "Save" : "Create"}
             </Button>
           </DialogFooter>
         </form>
@@ -284,7 +335,7 @@ function SlotDialog({ open, onOpenChange, selectedDate, onSubmit, isLoading }: S
 }
 
 // ==========================================
-// RECURRING SLOTS DIALOG
+// RECURRING DIALOG
 // ==========================================
 
 interface RecurringDialogProps {
@@ -294,179 +345,151 @@ interface RecurringDialogProps {
   isLoading: boolean;
 }
 
-const DAYS_OF_WEEK = [
-  { value: 1, label: 'Lundi' },
-  { value: 2, label: 'Mardi' },
-  { value: 3, label: 'Mercredi' },
-  { value: 4, label: 'Jeudi' },
-  { value: 5, label: 'Vendredi' },
-  { value: 6, label: 'Samedi' },
-  { value: 0, label: 'Dimanche' },
-];
+function RecurringDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  isLoading,
+}: RecurringDialogProps) {
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
-function RecurringDialog({ open, onOpenChange, onSubmit, isLoading }: RecurringDialogProps) {
   const {
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<RecurringFormData>({
     resolver: zodResolver(recurringSchema),
     defaultValues: {
-      startDate: new Date(),
-      endDate: addWeeks(new Date(), 4),
-      startTime: '09:00',
-      endTime: '18:00',
+      startDate: format(new Date(), "yyyy-MM-dd"),
+      endDate: format(addDays(new Date(), 30), "yyyy-MM-dd"),
+      startTime: "09:00",
+      endTime: "18:00",
+      daysOfWeek: [],
       slotDuration: 60,
-      breakDuration: 0,
-      daysOfWeek: [1, 2, 3, 4, 5],
     },
   });
 
-  const selectedDays = watch('daysOfWeek') || [];
-
   const toggleDay = (day: number) => {
-    const current = selectedDays;
-    const updated = current.includes(day)
-      ? current.filter((d) => d !== day)
-      : [...current, day];
-    setValue('daysOfWeek', updated);
+    const newDays = selectedDays.includes(day)
+      ? selectedDays.filter((d) => d !== day)
+      : [...selectedDays, day].sort();
+    setSelectedDays(newDays);
+    setValue("daysOfWeek", newDays);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Créneaux récurrents</DialogTitle>
+          <DialogTitle>Recurring Slots</DialogTitle>
           <DialogDescription>
-            Générez automatiquement des créneaux sur une période
+            Create multiple slots with a recurring pattern
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Date range */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Date de début</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-sm">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {watch('startDate') ? format(watch('startDate'), 'dd/MM/yy') : 'Début'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={watch('startDate')}
-                    onSelect={(date) => date && setValue('startDate', date)}
-                    locale={fr}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="startDate">Start date *</Label>
+              <Input
+                id="startDate"
+                type="date"
+                {...register("startDate")}
+                error={!!errors.startDate}
+              />
             </div>
+
             <div className="space-y-2">
-              <Label>Date de fin</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-sm">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {watch('endDate') ? format(watch('endDate'), 'dd/MM/yy') : 'Fin'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={watch('endDate')}
-                    onSelect={(date) => date && setValue('endDate', date)}
-                    locale={fr}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="endDate">End date *</Label>
+              <Input
+                id="endDate"
+                type="date"
+                {...register("endDate")}
+                error={!!errors.endDate}
+              />
             </div>
           </div>
 
-          {/* Time range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="recStartTime">Heure de début</Label>
-              <Input id="recStartTime" type="time" {...register('startTime')} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="recEndTime">Heure de fin</Label>
-              <Input id="recEndTime" type="time" {...register('endTime')} />
-            </div>
-          </div>
-
-          {/* Slot duration */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Durée des créneaux</Label>
-              <Select
-                value={String(watch('slotDuration'))}
-                onValueChange={(v) => setValue('slotDuration', Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 min</SelectItem>
-                  <SelectItem value="30">30 min</SelectItem>
-                  <SelectItem value="45">45 min</SelectItem>
-                  <SelectItem value="60">1h</SelectItem>
-                  <SelectItem value="90">1h30</SelectItem>
-                  <SelectItem value="120">2h</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Pause entre créneaux</Label>
-              <Select
-                value={String(watch('breakDuration'))}
-                onValueChange={(v) => setValue('breakDuration', Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Aucune</SelectItem>
-                  <SelectItem value="5">5 min</SelectItem>
-                  <SelectItem value="10">10 min</SelectItem>
-                  <SelectItem value="15">15 min</SelectItem>
-                  <SelectItem value="30">30 min</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Days of week */}
           <div className="space-y-2">
-            <Label>Jours de la semaine</Label>
+            <Label>Days of week *</Label>
             <div className="flex flex-wrap gap-2">
               {DAYS_OF_WEEK.map((day) => (
-                <Button
+                <button
                   key={day.value}
                   type="button"
-                  variant={selectedDays.includes(day.value) ? 'default' : 'outline'}
-                  size="sm"
                   onClick={() => toggleDay(day.value)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    selectedDays.includes(day.value)
+                      ? "bg-cyan-500 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
                 >
-                  {day.label.slice(0, 3)}
-                </Button>
+                  {day.shortLabel}
+                </button>
               ))}
             </div>
             {errors.daysOfWeek && (
-              <p className="text-sm text-destructive">{errors.daysOfWeek.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.daysOfWeek.message}
+              </p>
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Start time *</Label>
+              <Input
+                id="startTime"
+                type="time"
+                {...register("startTime")}
+                error={!!errors.startTime}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="endTime">End time *</Label>
+              <Input
+                id="endTime"
+                type="time"
+                {...register("endTime")}
+                error={!!errors.endTime}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="slotDuration">Slot duration (minutes) *</Label>
+            <Input
+              id="slotDuration"
+              type="number"
+              min={15}
+              max={480}
+              step={15}
+              {...register("slotDuration", { valueAsNumber: true })}
+              error={!!errors.slotDuration}
+            />
+            {errors.slotDuration && (
+              <p className="text-sm text-destructive">
+                {errors.slotDuration.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Duration of each individual slot (e.g., 60 minutes will create slots from 9:00-10:00, 10:00-11:00, etc.)
+            </p>
+          </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
             </Button>
-            <Button type="submit" isLoading={isLoading}>
-              Générer les créneaux
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Slots
             </Button>
           </DialogFooter>
         </form>
@@ -479,221 +502,241 @@ function RecurringDialog({ open, onOpenChange, onSubmit, isLoading }: RecurringD
 // MAIN PAGE
 // ==========================================
 
-export function PrestataireSlotsPage() {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [slotDialog, setSlotDialog] = useState<{ open: boolean; date: Date | null }>({
+export function SlotsPage() {
+  const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [view, setView] = useState<"week" | "list">("week");
+
+  const [dialogState, setDialogState] = useState<{
+    open: boolean;
+    slot: Slot | null;
+    initialDate?: Date;
+  }>({ open: false, slot: null });
+
+  const [recurringDialogOpen, setRecurringDialogOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; slot: Slot | null }>({
     open: false,
-    date: null,
-  });
-  const [recurringDialog, setRecurringDialog] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-
-  // Calculate date range for current week
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
-
-  const {
-    slots,
-    isLoading,
-    create: createSlot,
-    isCreating,
-    createRecurring: createRecurringSlots,
-    isCreatingRecurring,
-    delete: deleteSlotFn,
-    isDeleting,
-  } = useSlots({
-    startDate: format(weekStart, 'yyyy-MM-dd'),
-    endDate: format(weekEnd, 'yyyy-MM-dd'),
+    slot: null,
   });
 
-  // Navigation
-  const goToPreviousWeek = () => setCurrentDate(subWeeks(currentDate, 1));
-  const goToNextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
-  const goToToday = () => setCurrentDate(new Date());
+  // Hooks
+  const { data: slotsData, isLoading } = useMySlots();
+  const { mutateAsync: createSlot, isPending: isCreating } = useCreateSlot();
+  const { mutateAsync: createRecurring, isPending: isCreatingRecurring } =
+    useCreateRecurringSlots();
+  const { mutateAsync: updateSlot, isPending: isUpdating } = useUpdateSlot();
+  const { mutateAsync: deleteSlot, isPending: isDeleting } = useDeleteSlot();
+
+  const slots = slotsData?.data || [];
+
+  const isSubmitting = isCreating || isUpdating || isCreatingRecurring;
 
   // Handlers
-  const handleDateClick = (date: Date) => {
-    setSlotDialog({ open: true, date });
+  const handleCreateSlot = (date: Date) => {
+    setDialogState({ open: true, slot: null, initialDate: date });
   };
 
-  const handleSlotClick = (slot: Slot) => {
-    setSelectedSlot(slot);
+  const handleEditSlot = (slot: Slot) => {
+    setDialogState({ open: true, slot, initialDate: undefined });
   };
 
-  const handleCreateSlot = async (formData: SlotFormData) => {
-    await createSlot({
-      date: format(formData.date, 'yyyy-MM-dd'),
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-    });
-    setSlotDialog({ open: false, date: null });
+  const handleDeleteSlot = (slot: Slot) => {
+    setDeleteDialog({ open: true, slot });
   };
 
-  const handleCreateRecurring = async (formData: RecurringFormData) => {
-    await createRecurringSlots({
-      startDate: format(formData.startDate, 'yyyy-MM-dd'),
-      endDate: format(formData.endDate, 'yyyy-MM-dd'),
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      slotDuration: formData.slotDuration,
-      breakDuration: formData.breakDuration,
-      daysOfWeek: formData.daysOfWeek,
-    });
-    setRecurringDialog(false);
+  const handleSlotSubmit = async (data: SlotFormData) => {
+    try {
+      if (dialogState.slot) {
+        await updateSlot({ id: dialogState.slot.id, data });
+      } else {
+        await createSlot(data);
+      }
+      setDialogState({ open: false, slot: null });
+    } catch (error) {
+      // Error handled by hooks
+    }
   };
 
-  const handleDeleteSlot = async () => {
-    if (!selectedSlot) return;
-    await deleteSlotFn(selectedSlot.id);
-    setSelectedSlot(null);
+  const handleRecurringSubmit = async (data: RecurringFormData) => {
+    try {
+      await createRecurring(data);
+      setRecurringDialogOpen(false);
+    } catch (error) {
+      // Error handled by hooks
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteDialog.slot) return;
+    try {
+      await deleteSlot(deleteDialog.slot.id);
+      setDeleteDialog({ open: false, slot: null });
+    } catch (error) {
+      // Error handled by hooks
+    }
   };
 
   // Stats
   const availableCount = slots.filter((s) => s.status === SlotStatus.AVAILABLE).length;
-  const bookedCount = slots.filter((s) => s.status === SlotStatus.RESERVED).length;
+  const reservedCount = slots.filter((s) => s.status === SlotStatus.RESERVED).length;
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Mes créneaux</h1>
-          <p className="text-muted-foreground mt-1">
-            Gérez vos disponibilités
+          <h1 className="text-2xl font-bold">My Time Slots</h1>
+          <p className="text-muted-foreground">
+            Manage your availability
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setRecurringDialog(true)}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Récurrence
+          <Button variant="outline" onClick={() => setRecurringDialogOpen(true)}>
+            <Copy className="h-4 w-4 mr-2" />
+            Recurring
           </Button>
-          <Button onClick={() => setSlotDialog({ open: true, date: new Date() })}>
+          <Button onClick={() => setDialogState({ open: true, slot: null })}>
             <Plus className="h-4 w-4 mr-2" />
-            Nouveau créneau
+            New Slot
           </Button>
         </div>
       </div>
 
-      {/* Week navigation */}
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-cyan-100 text-cyan-600">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{slots.length}</p>
+                <p className="text-sm text-muted-foreground">Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-100 text-green-600">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{availableCount}</p>
+                <p className="text-sm text-muted-foreground">Available</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{reservedCount}</p>
+                <p className="text-sm text-muted-foreground">Reserved</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Week Navigation */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={goToNextWeek}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" onClick={goToToday}>
-                Aujourd'hui
-              </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <div className="text-center">
+              <p className="font-medium">
+                {format(weekStart, "MMMM yyyy", { locale: enUS })}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Week {format(weekStart, "w")}
+              </p>
             </div>
 
-            <h2 className="text-lg font-semibold">
-              {format(weekStart, 'd MMM', { locale: fr })} - {format(weekEnd, 'd MMM yyyy', { locale: fr })}
-            </h2>
-
-            <div className="flex items-center gap-4 text-sm">
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-green-500" />
-                Disponible ({availableCount})
-              </span>
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-cyan-500" />
-                Réservé ({bookedCount})
-              </span>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Week view */}
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <WeekView
-          currentDate={currentDate}
-          slots={slots}
-          onSlotClick={handleSlotClick}
-          onDateClick={handleDateClick}
-        />
-      )}
+      {/* Week View */}
+      <Card>
+        <CardContent className="p-4">
+          <WeekView
+            weekStart={weekStart}
+            slots={slots}
+            onSlotClick={handleEditSlot}
+            onCreateSlot={handleCreateSlot}
+          />
+        </CardContent>
+      </Card>
 
-      {/* Slot Dialog */}
+      {/* Dialogs */}
       <SlotDialog
-        open={slotDialog.open}
-        onOpenChange={(open) => setSlotDialog({ ...slotDialog, open })}
-        selectedDate={slotDialog.date}
-        onSubmit={handleCreateSlot}
-        isLoading={isCreating}
+        open={dialogState.open}
+        onOpenChange={(open) => setDialogState({ ...dialogState, open })}
+        slot={dialogState.slot}
+        initialDate={dialogState.initialDate}
+        onSubmit={handleSlotSubmit}
+        isLoading={isSubmitting}
       />
 
-      {/* Recurring Dialog */}
       <RecurringDialog
-        open={recurringDialog}
-        onOpenChange={setRecurringDialog}
-        onSubmit={handleCreateRecurring}
+        open={recurringDialogOpen}
+        onOpenChange={setRecurringDialogOpen}
+        onSubmit={handleRecurringSubmit}
         isLoading={isCreatingRecurring}
       />
 
-      {/* Slot Detail Dialog */}
-      <Dialog open={!!selectedSlot} onOpenChange={() => setSelectedSlot(null)}>
+      <Dialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Détails du créneau</DialogTitle>
+            <DialogTitle>Delete Slot</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this time slot? This action is irreversible.
+            </DialogDescription>
           </DialogHeader>
-          
-          {selectedSlot && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge className={statusConfig[selectedSlot.status].className}>
-                  {statusConfig[selectedSlot.status].label}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Date</p>
-                  <p className="font-medium">
-                    {format(parseISO(selectedSlot.date), 'EEEE d MMMM yyyy', { locale: fr })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Horaire</p>
-                  <p className="font-medium">
-                    {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
-                  </p>
-                </div>
-              </div>
-
-              {selectedSlot.status === SlotStatus.RESERVED && selectedSlot.appointment && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Réservé par</p>
-                  <p className="font-medium">
-                    {selectedSlot.appointment.client?.firstName} {selectedSlot.appointment.client?.lastName}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedSlot(null)}>
-              Fermer
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog({ open: false, slot: null })}
+            >
+              Cancel
             </Button>
-            {selectedSlot?.status === SlotStatus.AVAILABLE && (
-              <Button
-                variant="destructive"
-                onClick={handleDeleteSlot}
-                isLoading={isDeleting}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Supprimer
-              </Button>
-            )}
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -701,4 +744,4 @@ export function PrestataireSlotsPage() {
   );
 }
 
-export default PrestataireSlotsPage;
+export default SlotsPage;

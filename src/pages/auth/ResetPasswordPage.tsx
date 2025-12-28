@@ -1,8 +1,13 @@
 /**
- * ResetPasswordPage
- *
- * Page de réinitialisation du mot de passe.
- * L'utilisateur accède à cette page via le lien envoyé par email.
+ * ResetPasswordPage Component
+ * 
+ * Password reset form accessed via email link.
+ * Features:
+ * - Token validation
+ * - Password strength indicator
+ * - Real-time validation
+ * - Password visibility toggle
+ * - Auto-redirect on success
  */
 
 import { useState, useEffect } from "react";
@@ -31,25 +36,73 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { resetPassword } from "@/services/auth.service";
-import { ROUTES } from "@/lib/constants";
-import type { ResetPasswordDto } from "@/types";
+import { ROUTES, VALIDATION } from "@/lib/constants";
 
 // ==========================================
-// SCHEMA
+// PASSWORD STRENGTH INDICATOR
+// ==========================================
+
+interface PasswordStrengthProps {
+  password: string;
+}
+
+function PasswordStrength({ password }: PasswordStrengthProps) {
+  const getStrength = () => {
+    if (!password) return { score: 0, label: '', color: '' };
+    
+    let score = 0;
+    if (password.length >= VALIDATION.PASSWORD_MIN_LENGTH) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[@$!%*?&]/.test(password)) score++;
+
+    if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500' };
+    if (score === 3) return { score, label: 'Fair', color: 'bg-orange-500' };
+    if (score === 4) return { score, label: 'Good', color: 'bg-yellow-500' };
+    return { score, label: 'Strong', color: 'bg-green-500' };
+  };
+
+  const { score, label, color } = getStrength();
+
+  if (!password) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-1">
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className={`h-1 flex-1 rounded ${i < score ? color : 'bg-gray-200'}`}
+          />
+        ))}
+      </div>
+      {label && (
+        <p className="text-xs text-muted-foreground">
+          Password strength: <span className="font-medium">{label}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// VALIDATION SCHEMA
 // ==========================================
 
 const resetPasswordSchema = z
   .object({
     password: z
       .string()
-      .min(8, "Le mot de passe doit contenir au moins 8 caractères")
-      .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une majuscule")
-      .regex(/[a-z]/, "Le mot de passe doit contenir au moins une minuscule")
-      .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre"),
+      .min(VALIDATION.PASSWORD_MIN_LENGTH, `Password must be at least ${VALIDATION.PASSWORD_MIN_LENGTH} characters`)
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number")
+      .regex(/[@$!%*?&]/, "Password must contain at least one special character"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Les mots de passe ne correspondent pas",
+    message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
@@ -68,6 +121,7 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordValue, setPasswordValue] = useState('');
 
   const {
     register,
@@ -75,12 +129,13 @@ export default function ResetPasswordPage() {
     formState: { errors, isSubmitting },
   } = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
+    mode: 'onBlur',
   });
 
-  // Vérifier si le token est présent
+  // Validate token presence
   useEffect(() => {
     if (!token) {
-      setError("Lien de réinitialisation invalide ou expiré.");
+      setError("Invalid or expired reset link.");
     }
   }, [token]);
 
@@ -89,19 +144,25 @@ export default function ResetPasswordPage() {
 
     try {
       setError(null);
-      // ✅ Correct - 1 argument
-      await resetPassword({ token, password: data.password });
+      await resetPassword({ token, password: data.password } as any);
       setIsSuccess(true);
 
-      // Rediriger vers la page de connexion après 3 secondes
+      // Redirect after 3 seconds
       setTimeout(() => {
-        navigate(ROUTES.LOGIN);
+        navigate(ROUTES.LOGIN, {
+          state: { message: 'Password reset successfully. Please sign in.' }
+        });
       }, 3000);
     } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-          "Une erreur est survenue. Le lien est peut-être expiré."
-      );
+      const errorMessage = err.response?.data?.message || err.message;
+      
+      if (errorMessage?.toLowerCase().includes('expired')) {
+        setError("This reset link has expired. Please request a new one.");
+      } else if (errorMessage?.toLowerCase().includes('invalid')) {
+        setError("This reset link is invalid. Please request a new one.");
+      } else {
+        setError("Failed to reset password. Please try again.");
+      }
     }
   };
 
@@ -116,19 +177,19 @@ export default function ResetPasswordPage() {
           <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
             <AlertCircle className="h-6 w-6 text-destructive" />
           </div>
-          <CardTitle>Lien invalide</CardTitle>
+          <CardTitle>Invalid Link</CardTitle>
           <CardDescription>
-            Ce lien de réinitialisation est invalide ou a expiré.
+            This password reset link is invalid or has expired.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button asChild className="w-full">
-            <Link to={ROUTES.FORGOT_PASSWORD}>Demander un nouveau lien</Link>
+            <Link to={ROUTES.FORGOT_PASSWORD}>Request New Link</Link>
           </Button>
           <Button asChild variant="outline" className="w-full">
             <Link to={ROUTES.LOGIN}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour à la connexion
+              Back to Sign In
             </Link>
           </Button>
         </CardContent>
@@ -147,15 +208,14 @@ export default function ResetPasswordPage() {
           <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <CheckCircle className="h-6 w-6 text-green-600" />
           </div>
-          <CardTitle>Mot de passe modifié !</CardTitle>
+          <CardTitle>Password Reset Successfully!</CardTitle>
           <CardDescription>
-            Votre mot de passe a été réinitialisé avec succès. Vous allez être
-            redirigé vers la page de connexion.
+            Your password has been updated. You will be redirected to sign in shortly.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link to={ROUTES.LOGIN}>Se connecter</Link>
+            <Link to={ROUTES.LOGIN}>Sign In Now</Link>
           </Button>
         </CardContent>
       </Card>
@@ -172,73 +232,80 @@ export default function ResetPasswordPage() {
         <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
           <KeyRound className="h-6 w-6 text-primary" />
         </div>
-        <CardTitle>Nouveau mot de passe</CardTitle>
+        <CardTitle>Create New Password</CardTitle>
         <CardDescription>
-          Choisissez un nouveau mot de passe sécurisé pour votre compte.
+          Choose a strong password to secure your account.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {error && (
-            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md border border-destructive/20">
               {error}
             </div>
           )}
 
+          {/* New Password */}
           <div className="space-y-2">
-            <Label htmlFor="password">Nouveau mot de passe</Label>
+            <Label htmlFor="password">New Password</Label>
             <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                {...register("password")}
+                autoComplete="new-password"
                 disabled={isSubmitting}
+                error={!!errors.password}
+                {...register("password", {
+                  onChange: (e) => setPasswordValue(e.target.value),
+                })}
               />
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isSubmitting}
               >
                 {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  <EyeOff className="h-4 w-4" />
                 ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  <Eye className="h-4 w-4" />
                 )}
-              </Button>
+              </button>
             </div>
             {errors.password && (
               <p className="text-sm text-destructive">
                 {errors.password.message}
               </p>
             )}
+            <PasswordStrength password={passwordValue} />
           </div>
 
+          {/* Confirm Password */}
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
             <div className="relative">
               <Input
                 id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
-                {...register("confirmPassword")}
+                autoComplete="new-password"
                 disabled={isSubmitting}
+                error={!!errors.confirmPassword}
+                {...register("confirmPassword")}
               />
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isSubmitting}
               >
                 {showConfirmPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  <EyeOff className="h-4 w-4" />
                 ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
+                  <Eye className="h-4 w-4" />
                 )}
-              </Button>
+              </button>
             </div>
             {errors.confirmPassword && (
               <p className="text-sm text-destructive">
@@ -247,13 +314,15 @@ export default function ResetPasswordPage() {
             )}
           </div>
 
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>Le mot de passe doit contenir :</p>
+          {/* Password Requirements */}
+          <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 p-3 rounded-md">
+            <p className="font-medium">Password must contain:</p>
             <ul className="list-disc list-inside space-y-0.5">
-              <li>Au moins 8 caractères</li>
-              <li>Au moins une majuscule</li>
-              <li>Au moins une minuscule</li>
-              <li>Au moins un chiffre</li>
+              <li>At least {VALIDATION.PASSWORD_MIN_LENGTH} characters</li>
+              <li>At least one uppercase letter</li>
+              <li>At least one lowercase letter</li>
+              <li>At least one number</li>
+              <li>At least one special character (@$!%*?&)</li>
             </ul>
           </div>
 
@@ -261,20 +330,20 @@ export default function ResetPasswordPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Réinitialisation...
+                Resetting Password...
               </>
             ) : (
-              "Réinitialiser le mot de passe"
+              "Reset Password"
             )}
           </Button>
 
           <div className="text-center">
             <Link
               to={ROUTES.LOGIN}
-              className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+              className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1 transition-colors"
             >
               <ArrowLeft className="h-3 w-3" />
-              Retour à la connexion
+              Back to Sign In
             </Link>
           </div>
         </form>

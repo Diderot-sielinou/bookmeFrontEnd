@@ -138,7 +138,7 @@ export function PrestataireCard({ prestataire, className }: PrestataireCardProps
             )}
 
             {/* CTA */}
-            <Button size="sm">Voir le profil</Button>
+            <Button size="sm">View profile</Button>
           </div>
         </Link>
       </CardContent>

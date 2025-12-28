@@ -1,3 +1,15 @@
+/**
+ * Header Component
+ * 
+ * Main navigation header with user menu, notifications, and search.
+ * Features:
+ * - Responsive design with mobile menu
+ * - User profile dropdown
+ * - Notification badges
+ * - Message badges
+ * - Search bar (optional)
+ */
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -15,7 +27,7 @@ import {
 import { ROUTES } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificationBadge } from '@/hooks/useNotifications';
-import { useMessagesBadge } from '@/hooks/useMessages'; // ✅ Nouveau hook
+import { useMessagesBadge } from '@/hooks/useMessages';
 import {
   Button,
   Avatar,
@@ -28,16 +40,24 @@ import {
   Input,
 } from '@/components/ui';
 
+// ==========================================
+// TYPES
+// ==========================================
+
 interface HeaderProps {
   showSearch?: boolean;
   onMenuClick?: () => void;
 }
 
+// ==========================================
+// COMPONENT
+// ==========================================
+
 export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { user, profile, isAuthenticated, logout, isClient, isPrestataire, isAdmin } = useAuth();
   const { count: notificationCount, hasUnread: hasUnreadNotifications } = useNotificationBadge();
-  const { count: messageCount, hasUnread: hasUnreadMessages } = useMessagesBadge(); // ✅ Nouveau
+  const { count: messageCount, hasUnread: hasUnreadMessages } = useMessagesBadge();
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
@@ -66,12 +86,20 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
         {/* LOGO & MOBILE MENU */}
         <div className="flex items-center gap-4">
           {isAuthenticated && (
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="md:hidden" 
+              onClick={onMenuClick}
+              aria-label="Open menu"
+            >
               <Menu className="h-5 w-5" />
             </Button>
           )}
           <Link to={ROUTES.HOME} className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500 text-white font-bold">B</div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500 text-white font-bold">
+              B
+            </div>
             <span className="hidden font-bold text-xl sm:inline-block">
               Book<span className="text-cyan-500">Me</span>
             </span>
@@ -85,10 +113,11 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Rechercher un prestataire..."
+                placeholder="Search for providers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 w-full"
+                aria-label="Search providers"
               />
             </div>
           </form>
@@ -98,12 +127,13 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
-              {/* 🔔 NOTIFICATIONS */}
+              {/* Notifications */}
               <Button
                 variant="ghost"
                 size="icon"
                 className="relative"
-                onClick={() => navigate(isClient ? ROUTES.CLIENT_NOTIFICATIONS : '/prestataire/notifications')}
+                onClick={() => navigate(isClient ? ROUTES.CLIENT_NOTIFICATIONS : ROUTES.PRESTATAIRE_NOTIFICATION)}
+                aria-label={`Notifications${hasUnreadNotifications ? ` (${notificationCount} unread)` : ''}`}
               >
                 <Bell className="h-5 w-5" />
                 {hasUnreadNotifications && (
@@ -113,12 +143,13 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
                 )}
               </Button>
 
-              {/* 💬 MESSAGES */}
+              {/* Messages */}
               <Button
                 variant="ghost"
                 size="icon"
                 className="relative"
                 onClick={() => navigate(isClient ? ROUTES.CLIENT_MESSAGES : ROUTES.PRESTATAIRE_MESSAGES)}
+                aria-label={`Messages${hasUnreadMessages ? ` (${messageCount} unread)` : ''}`}
               >
                 <MessageSquare className="h-5 w-5" />
                 {hasUnreadMessages && (
@@ -128,10 +159,14 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
                 )}
               </Button>
 
-              {/* 👤 USER MENU */}
+              {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Button 
+                    variant="ghost" 
+                    className="relative h-10 w-10 rounded-full"
+                    aria-label="User menu"
+                  >
                     <Avatar
                       src={profile && 'avatar' in profile ? profile.avatar : null}
                       firstName={profile && 'firstName' in profile ? profile.firstName : undefined}
@@ -146,22 +181,22 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate(getDashboardLink())}>
-                    <LayoutDashboard className="mr-2 h-4 w-4" /> Tableau de bord
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate(isClient ? ROUTES.CLIENT_APPOINTMENTS : ROUTES.PRESTATAIRE_APPOINTMENTS)}>
-                    <Calendar className="mr-2 h-4 w-4" /> Mes rendez-vous
+                    <Calendar className="mr-2 h-4 w-4" /> My Appointments
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate(isClient ? ROUTES.CLIENT_PROFILE : ROUTES.PRESTATAIRE_PROFILE)}>
-                    <User className="mr-2 h-4 w-4" /> Mon profil
+                    <User className="mr-2 h-4 w-4" /> My Profile
                   </DropdownMenuItem>
                   {isPrestataire && (
                     <DropdownMenuItem onClick={() => navigate(ROUTES.PRESTATAIRE_SETTINGS)}>
-                      <Settings className="mr-2 h-4 w-4" /> Paramètres
+                      <Settings className="mr-2 h-4 w-4" /> Settings
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
-                    <LogOut className="mr-2 h-4 w-4" /> Déconnexion
+                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -169,13 +204,13 @@ export function Header({ showSearch = false, onMenuClick }: HeaderProps) {
           ) : (
             <div className="flex items-center gap-2">
               <Button variant="ghost" asChild className="hidden sm:inline-flex">
-                <Link to={ROUTES.SEARCH}>Trouver un prestataire</Link>
+                <Link to={ROUTES.SEARCH}>Find a Provider</Link>
               </Button>
               <Button variant="ghost" asChild>
-                <Link to={ROUTES.LOGIN}>Connexion</Link>
+                <Link to={ROUTES.LOGIN}>Sign In</Link>
               </Button>
               <Button asChild>
-                <Link to={ROUTES.REGISTER}>S'inscrire</Link>
+                <Link to={ROUTES.REGISTER}>Sign Up</Link>
               </Button>
             </div>
           )}

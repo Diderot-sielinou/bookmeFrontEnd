@@ -182,13 +182,11 @@ export const validateFile = (
   ];
 
   if (file.size > maxSize) {
-    return `Le fichier dépasse la taille maximale de ${
-      options?.maxSizeMB || 5
-    } Mo`;
+  return `File exceeds maximum size of ${options?.maxSizeMB || 5} MB`;
   }
 
   if (!allowedTypes.includes(file.type)) {
-    return "Format de fichier non supporté. Utilisez JPEG, PNG, GIF ou WebP.";
+     return "Unsupported file format. Use JPEG, PNG, GIF or WebP.";
   }
 
   return null;

@@ -1,12 +1,12 @@
 /**
- * Page Profil (Client)
- * ALIGNÉ AVEC BACKEND - Upload avatar fonctionnel
+ * Profile Page (Client)
+ * ALIGNED WITH BACKEND - Functional avatar upload
  *
- * Gestion du profil utilisateur client :
- * - Informations personnelles
- * - Changement de photo de profil
- * - Changement de mot de passe
- * - Préférences de notification
+ * User profile management for clients:
+ * - Personal information
+ * - Profile photo change
+ * - Password change
+ * - Notification preferences
  */
 
 import { useState, useRef } from "react";
@@ -70,26 +70,26 @@ import { showSuccess, showError } from "@/components/ui/toast";
 // ==========================================
 
 const profileSchema = z.object({
-  firstName: z.string().min(2, "Minimum 2 caractères"),
-  lastName: z.string().min(2, "Minimum 2 caractères"),
+  firstName: z.string().min(2, "Minimum 2 characters"),
+  lastName: z.string().min(2, "Minimum 2 characters"),
   phone: z.string().optional(),
 });
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Mot de passe actuel requis"),
+    currentPassword: z.string().min(1, "Current password required"),
     newPassword: z
       .string()
       .min(
         VALIDATION.PASSWORD_MIN_LENGTH,
-        `Minimum ${VALIDATION.PASSWORD_MIN_LENGTH} caractères`
+        `Minimum ${VALIDATION.PASSWORD_MIN_LENGTH} characters`
       )
-      .regex(/[A-Z]/, "Au moins une majuscule")
-      .regex(/[0-9]/, "Au moins un chiffre"),
-    confirmPassword: z.string().min(1, "Confirmation requise"),
+      .regex(/[A-Z]/, "At least one uppercase letter")
+      .regex(/[0-9]/, "At least one digit"),
+    confirmPassword: z.string().min(1, "Confirmation required"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Les mots de passe ne correspondent pas",
+    message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
@@ -124,7 +124,7 @@ function AvatarUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validation du fichier
+    // File validation
     const validationError = validateFile(file, {
       maxSizeMB: 5,
       allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
@@ -137,19 +137,19 @@ function AvatarUpload({
 
     setIsUploading(true);
     try {
-      // 1. Upload l'image vers Cloudinary via le backend
+      // 1. Upload image to Cloudinary via backend
       const uploadResult = await uploadAvatar(file);
 
-      // 2. Mettre à jour le profil avec la nouvelle URL d'avatar
+      // 2. Update profile with new avatar URL
       await onAvatarChange(uploadResult.url);
 
-      showSuccess("Photo de profil mise à jour");
+      showSuccess("Profile photo updated");
     } catch (error) {
       console.error("Avatar upload error:", error);
       showError(getErrorMessage(error));
     } finally {
       setIsUploading(false);
-      // Reset l'input pour permettre de re-sélectionner le même fichier
+      // Reset input to allow re-selecting same file
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -159,9 +159,9 @@ function AvatarUpload({
   const handleDeleteAvatar = async () => {
     setIsUploading(true);
     try {
-      // Supprimer l'avatar (mettre à null)
+      // Delete avatar (set to null)
       await onAvatarChange(null);
-      showSuccess("Photo de profil supprimée");
+      showSuccess("Profile photo deleted");
       setShowDeleteDialog(false);
     } catch (error) {
       showError(getErrorMessage(error));
@@ -180,7 +180,7 @@ function AvatarUpload({
           size="2xl"
         />
 
-        {/* Overlay au hover */}
+        {/* Hover overlay */}
         <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           {isUploading ? (
             <Loader2 className="h-6 w-6 text-white animate-spin" />
@@ -190,7 +190,7 @@ function AvatarUpload({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                title="Changer la photo"
+                title="Change photo"
               >
                 <Camera className="h-5 w-5 text-white" />
               </button>
@@ -199,7 +199,7 @@ function AvatarUpload({
                   type="button"
                   onClick={() => setShowDeleteDialog(true)}
                   className="p-2 rounded-full bg-white/20 hover:bg-red-500/50 transition-colors"
-                  title="Supprimer la photo"
+                  title="Delete photo"
                 >
                   <Trash2 className="h-5 w-5 text-white" />
                 </button>
@@ -208,7 +208,7 @@ function AvatarUpload({
           )}
         </div>
 
-        {/* Bouton visible sur mobile */}
+        {/* Mobile button */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -222,7 +222,7 @@ function AvatarUpload({
           )}
         </button>
 
-        {/* Input file caché */}
+        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -233,14 +233,14 @@ function AvatarUpload({
         />
       </div>
 
-      {/* Dialog de confirmation de suppression */}
+      {/* Delete confirmation dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer la photo de profil ?</DialogTitle>
+            <DialogTitle>Delete Profile Photo?</DialogTitle>
             <DialogDescription>
-              Votre photo de profil sera remplacée par vos initiales. Cette
-              action est irréversible.
+              Your profile photo will be replaced with your initials. This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -248,7 +248,7 @@ function AvatarUpload({
               variant="outline"
               onClick={() => setShowDeleteDialog(false)}
             >
-              Annuler
+              Cancel
             </Button>
             <Button
               variant="destructive"
@@ -258,10 +258,10 @@ function AvatarUpload({
               {isUploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Suppression...
+                  Deleting...
                 </>
               ) : (
-                "Supprimer"
+                "Delete"
               )}
             </Button>
           </DialogFooter>
@@ -299,7 +299,7 @@ function ProfileForm({ profile, onSubmit, isLoading }: ProfileFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="firstName">Prénom *</Label>
+          <Label htmlFor="firstName">First Name *</Label>
           <Input
             id="firstName"
             leftIcon={<User className="h-4 w-4" />}
@@ -314,7 +314,7 @@ function ProfileForm({ profile, onSubmit, isLoading }: ProfileFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="lastName">Nom *</Label>
+          <Label htmlFor="lastName">Last Name *</Label>
           <Input
             id="lastName"
             leftIcon={<User className="h-4 w-4" />}
@@ -330,7 +330,7 @@ function ProfileForm({ profile, onSubmit, isLoading }: ProfileFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="phone">Téléphone</Label>
+        <Label htmlFor="phone">Phone</Label>
         <Input
           id="phone"
           type="tel"
@@ -344,12 +344,12 @@ function ProfileForm({ profile, onSubmit, isLoading }: ProfileFormProps) {
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Enregistrement...
+            Saving...
           </>
         ) : (
           <>
             <Save className="h-4 w-4 mr-2" />
-            Enregistrer les modifications
+            Save Changes
           </>
         )}
       </Button>
@@ -390,7 +390,7 @@ function PasswordForm({ onSubmit, isLoading }: PasswordFormProps) {
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="currentPassword">Mot de passe actuel *</Label>
+        <Label htmlFor="currentPassword">Current Password *</Label>
         <div className="relative">
           <Input
             id="currentPassword"
@@ -421,7 +421,7 @@ function PasswordForm({ onSubmit, isLoading }: PasswordFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="newPassword">Nouveau mot de passe *</Label>
+        <Label htmlFor="newPassword">New Password *</Label>
         <div className="relative">
           <Input
             id="newPassword"
@@ -448,12 +448,12 @@ function PasswordForm({ onSubmit, isLoading }: PasswordFormProps) {
           </p>
         )}
         <p className="text-xs text-muted-foreground">
-          8 caractères minimum, 1 majuscule, 1 chiffre
+          8 characters minimum, 1 uppercase, 1 digit
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
+        <Label htmlFor="confirmPassword">Confirm Password *</Label>
         <div className="relative">
           <Input
             id="confirmPassword"
@@ -487,12 +487,12 @@ function PasswordForm({ onSubmit, isLoading }: PasswordFormProps) {
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Modification...
+            Changing...
           </>
         ) : (
           <>
             <Lock className="h-4 w-4 mr-2" />
-            Changer le mot de passe
+            Change Password
           </>
         )}
       </Button>
@@ -526,9 +526,9 @@ function NotificationsForm({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <p className="font-medium">Rappels par email</p>
+            <p className="font-medium">Email Reminders</p>
             <p className="text-sm text-muted-foreground">
-              Recevoir des rappels avant vos rendez-vous
+              Receive reminders before your appointments
             </p>
           </div>
           <Switch
@@ -541,9 +541,9 @@ function NotificationsForm({
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <p className="font-medium">Emails marketing</p>
+            <p className="font-medium">Marketing Emails</p>
             <p className="text-sm text-muted-foreground">
-              Recevoir des offres et actualités
+              Receive offers and updates
             </p>
           </div>
           <Switch
@@ -556,9 +556,9 @@ function NotificationsForm({
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <p className="font-medium">Notifications push</p>
+            <p className="font-medium">Push Notifications</p>
             <p className="text-sm text-muted-foreground">
-              Recevoir des notifications sur votre appareil
+              Receive notifications on your device
             </p>
           </div>
           <Switch
@@ -574,12 +574,12 @@ function NotificationsForm({
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Enregistrement...
+            Saving...
           </>
         ) : (
           <>
             <Save className="h-4 w-4 mr-2" />
-            Enregistrer les préférences
+            Save Preferences
           </>
         )}
       </Button>
@@ -611,26 +611,26 @@ export function ClientProfilePage() {
   // ==========================================
 
   /**
-   * Mise à jour de l'avatar
+   * Avatar update
    * 1. Upload via /upload/avatar
-   * 2. Mise à jour du profil via PATCH /users/clients/me
+   * 2. Update profile via PATCH /users/clients/me
    */
   const handleAvatarChange = async (avatarUrl: string | null) => {
     try {
-      // Mettre à jour le profil avec la nouvelle URL d'avatar
+      // Update profile with new avatar URL
       const updatedProfile = await updateMyClientProfile({
         avatar: avatarUrl as string,
       });
 
-      // Mettre à jour le state local
+      // Update local state
       updateProfile(updatedProfile);
     } catch (error) {
-      throw error; // Re-throw pour que le composant AvatarUpload puisse afficher l'erreur
+      throw error; // Re-throw so AvatarUpload can display error
     }
   };
 
   /**
-   * Mise à jour des informations du profil
+   * Profile information update
    */
   const handleProfileSubmit = async (data: ProfileFormData) => {
     setIsUpdatingProfile(true);
@@ -642,7 +642,7 @@ export function ClientProfilePage() {
       });
 
       updateProfile(updatedProfile);
-      showSuccess("Profil mis à jour avec succès");
+      showSuccess("Profile updated successfully");
     } catch (error) {
       console.error("Profile update error:", error);
       showError(getErrorMessage(error));
@@ -652,7 +652,7 @@ export function ClientProfilePage() {
   };
 
   /**
-   * Changement de mot de passe
+   * Password change
    */
   const handlePasswordSubmit = async (data: PasswordFormData) => {
     setIsUpdatingPassword(true);
@@ -661,7 +661,7 @@ export function ClientProfilePage() {
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
       });
-      showSuccess("Mot de passe modifié avec succès");
+      showSuccess("Password changed successfully");
     } catch (error) {
       console.error("Password change error:", error);
       showError(getErrorMessage(error));
@@ -671,22 +671,22 @@ export function ClientProfilePage() {
   };
 
   /**
-   * Changement des préférences de notification
+   * Notification preferences change
    */
   const handleNotificationChange = (key: string, value: boolean) => {
     setNotifications((prev) => ({ ...prev, [key]: value }));
   };
 
   /**
-   * Sauvegarde des préférences de notification
+   * Save notification preferences
    */
   const handleNotificationsSave = async () => {
     setIsUpdatingNotifications(true);
     try {
-      // TODO: Appeler l'API pour sauvegarder les préférences
+      // TODO: Call API to save preferences
       // await updateNotificationPreferences(notifications);
       await new Promise((resolve) => setTimeout(resolve, 500)); // Simulation
-      showSuccess("Préférences de notification enregistrées");
+      showSuccess("Notification preferences saved");
     } catch (error) {
       showError(getErrorMessage(error));
     } finally {
@@ -706,9 +706,9 @@ export function ClientProfilePage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Mon profil</h1>
+        <h1 className="text-3xl font-bold">My Profile</h1>
         <p className="text-muted-foreground mt-1">
-          Gérez vos informations personnelles et vos préférences
+          Manage your personal information and preferences
         </p>
       </div>
 
@@ -716,7 +716,7 @@ export function ClientProfilePage() {
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-center gap-6">
-            {/* Avatar avec upload */}
+            {/* Avatar with upload */}
             <AvatarUpload
               currentAvatar={clientProfile.avatar}
               firstName={clientProfile.firstName}
@@ -726,7 +726,7 @@ export function ClientProfilePage() {
               setIsUploading={setIsUploadingAvatar}
             />
 
-            {/* Informations utilisateur */}
+            {/* User information */}
             <div className="text-center sm:text-left">
               <h2 className="text-xl font-semibold">
                 {clientProfile.firstName} {clientProfile.lastName}
@@ -737,11 +737,11 @@ export function ClientProfilePage() {
               </p>
               {user?.emailVerified && (
                 <span className="inline-flex items-center text-xs text-green-600 mt-2">
-                  ✓ Email vérifié
+                  ✓ Email verified
                 </span>
               )}
               <p className="text-xs text-muted-foreground mt-2">
-                Survolez la photo pour la modifier
+                Hover over photo to change
               </p>
             </div>
           </div>
@@ -753,11 +753,11 @@ export function ClientProfilePage() {
         <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4" />
-            <span className="hidden sm:inline">Informations</span>
+            <span className="hidden sm:inline">Information</span>
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2">
             <Lock className="h-4 w-4" />
-            <span className="hidden sm:inline">Sécurité</span>
+            <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="h-4 w-4" />
@@ -765,13 +765,13 @@ export function ClientProfilePage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: Informations personnelles */}
+        {/* Tab: Personal information */}
         <TabsContent value="profile" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Informations personnelles</CardTitle>
+              <CardTitle>Personal Information</CardTitle>
               <CardDescription>
-                Mettez à jour vos informations de contact
+                Update your contact information
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -784,13 +784,13 @@ export function ClientProfilePage() {
           </Card>
         </TabsContent>
 
-        {/* Tab: Sécurité */}
+        {/* Tab: Security */}
         <TabsContent value="security" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Mot de passe</CardTitle>
+              <CardTitle>Password</CardTitle>
               <CardDescription>
-                Modifiez votre mot de passe de connexion
+                Change your login password
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -806,9 +806,9 @@ export function ClientProfilePage() {
         <TabsContent value="notifications" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Préférences de notifications</CardTitle>
+              <CardTitle>Notification Preferences</CardTitle>
               <CardDescription>
-                Configurez comment vous souhaitez être notifié
+                Configure how you want to be notified
               </CardDescription>
             </CardHeader>
             <CardContent>

@@ -1,15 +1,15 @@
 /**
- * Page Dashboard Client
+ * Client Dashboard Page
  *
- * Vue d'ensemble pour les clients avec :
- * - Prochains rendez-vous
- * - Actions rapides
- * - Statistiques personnelles
+ * Overview for clients with:
+ * - Upcoming appointments
+ * - Quick actions
+ * - Personal statistics
  */
 
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import {
   Calendar,
   Clock,
@@ -40,15 +40,16 @@ import { EmptyState } from "@/components/shared";
 import { useMemo } from "react";
 
 // ==========================================
-// COMPOSANT
+// COMPONENT
 // ==========================================
 
 export function ClientDashboardPage() {
   const today = useMemo(() => {
     const date = new Date();
-    date.setHours(0, 0, 0, 0); // On arrondit à minuit pour la stabilité
+    date.setHours(0, 0, 0, 0);
     return date.toISOString();
   }, []);
+  
   const { profile } = useAuth();
   const { data: appointmentsData, isLoading } = useMyAppointments({
     status: AppointmentStatus.CONFIRMED,
@@ -67,14 +68,14 @@ export function ClientDashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">
-          Bonjour {clientProfile?.firstName} 👋
+          Hello {clientProfile?.firstName} 👋
         </h1>
         <p className="text-muted-foreground mt-1">
-          Bienvenue sur votre tableau de bord
+          Welcome to your dashboard
         </p>
       </div>
 
-      {/* Actions rapides */}
+      {/* Quick actions */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Link to={ROUTES.SEARCH}>
           <Card className="card-hover h-full">
@@ -83,9 +84,9 @@ export function ClientDashboardPage() {
                 <Search className="h-5 w-5" />
               </div>
               <div>
-                <p className="font-medium">Rechercher</p>
+                <p className="font-medium">Search</p>
                 <p className="text-xs text-muted-foreground">
-                  Trouver un prestataire
+                  Find a provider
                 </p>
               </div>
             </CardContent>
@@ -99,9 +100,9 @@ export function ClientDashboardPage() {
                 <Calendar className="h-5 w-5" />
               </div>
               <div>
-                <p className="font-medium">Rendez-vous</p>
+                <p className="font-medium">Appointments</p>
                 <p className="text-xs text-muted-foreground">
-                  Voir tous mes RDV
+                  View all my appointments
                 </p>
               </div>
             </CardContent>
@@ -117,7 +118,7 @@ export function ClientDashboardPage() {
               <div>
                 <p className="font-medium">Messages</p>
                 <p className="text-xs text-muted-foreground">
-                  Mes conversations
+                  My conversations
                 </p>
               </div>
             </CardContent>
@@ -131,9 +132,9 @@ export function ClientDashboardPage() {
                 <Star className="h-5 w-5" />
               </div>
               <div>
-                <p className="font-medium">Mes avis</p>
+                <p className="font-medium">My Reviews</p>
                 <p className="text-xs text-muted-foreground">
-                  Voir et laisser des avis
+                  View and leave reviews
                 </p>
               </div>
             </CardContent>
@@ -141,13 +142,13 @@ export function ClientDashboardPage() {
         </Link>
       </div>
 
-      {/* Prochains rendez-vous */}
+      {/* Upcoming appointments */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl">Prochains rendez-vous</CardTitle>
+          <CardTitle className="text-xl">Upcoming Appointments</CardTitle>
           <Button variant="ghost" size="sm" asChild>
             <Link to={ROUTES.CLIENT_APPOINTMENTS}>
-              Voir tout <ArrowRight className="ml-1 h-4 w-4" />
+              View All <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </Button>
         </CardHeader>
@@ -162,9 +163,9 @@ export function ClientDashboardPage() {
           {!isLoading && upcomingAppointments.length === 0 && (
             <EmptyState
               icon={CalendarCheck}
-              title="Aucun rendez-vous à venir"
-              description="Trouvez un prestataire et réservez votre premier rendez-vous !"
-              actionLabel="Rechercher un prestataire"
+              title="No upcoming appointments"
+              description="Find a provider and book your first appointment!"
+              actionLabel="Search for a provider"
               onAction={() => (window.location.href = ROUTES.SEARCH)}
             />
           )}
@@ -176,7 +177,7 @@ export function ClientDashboardPage() {
                   key={appointment.id}
                   className="flex items-center gap-4 p-4 rounded-lg border hover:bg-accent/50 transition-colors"
                 >
-                  {/* Avatar prestataire */}
+                  {/* Provider avatar */}
                   <Avatar
                     src={appointment.prestataire?.avatar}
                     firstName={appointment.prestataire?.firstName}
@@ -184,7 +185,7 @@ export function ClientDashboardPage() {
                     size="lg"
                   />
 
-                  {/* Infos */}
+                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
                       {appointment.prestataire?.businessName ||
@@ -198,8 +199,8 @@ export function ClientDashboardPage() {
                         <Calendar className="h-3.5 w-3.5" />
                         {format(
                           new Date(appointment.slot?.date || ""),
-                          "EEEE d MMMM",
-                          { locale: fr }
+                          "EEEE, MMMM d",
+                          { locale: enUS }
                         )}
                       </span>
                       <span className="flex items-center gap-1">
@@ -209,9 +210,9 @@ export function ClientDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Prix et statut */}
+                  {/* Price and status */}
                   <div className="text-right">
-                    <Badge variant="success">Confirmé</Badge>
+                    <Badge variant="success">Confirmed</Badge>
                     <p className="mt-1 font-semibold text-cyan-600">
                       {formatPrice(appointment.priceAtBooking)}
                     </p>
@@ -223,13 +224,13 @@ export function ClientDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Conseils */}
+      {/* Tips */}
       <Card className="bg-gradient-to-r from-cyan-50 to-teal-50 border-cyan-200">
         <CardContent className="p-6">
-          <h3 className="font-semibold text-lg mb-2">💡 Astuce du jour</h3>
+          <h3 className="font-semibold text-lg mb-2">💡 Tip of the Day</h3>
           <p className="text-muted-foreground">
-            N'oubliez pas de laisser un avis après chaque rendez-vous pour aider
-            la communauté et les prestataires à s'améliorer !
+            Don't forget to leave a review after each appointment to help
+            the community and providers improve!
           </p>
         </CardContent>
       </Card>

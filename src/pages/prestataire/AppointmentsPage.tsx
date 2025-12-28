@@ -1,8 +1,8 @@
 /**
- * AppointmentsPage (Prestataire)
+ * AppointmentsPage (Provider)
  *
- * Page de gestion des rendez-vous pour les prestataires.
- * Liste, filtre et permet d'agir sur les rendez-vous.
+ * Appointment management page for providers.
+ * Lists, filters, and allows actions on appointments.
  */
 
 import { useState } from "react";
@@ -15,7 +15,7 @@ import {
   isFuture,
   parseISO,
 } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import {
   Calendar,
   Clock,
@@ -89,25 +89,25 @@ const getStatusConfig = (status: AppointmentStatus) => {
   switch (status) {
     case AppointmentStatus.CONFIRMED:
       return {
-        label: "Confirmé",
+        label: "Confirmed",
         variant: "default" as const,
         icon: CheckCircle,
       };
     case AppointmentStatus.COMPLETED:
       return {
-        label: "Terminé",
+        label: "Completed",
         variant: "secondary" as const,
         icon: CheckCircle,
       };
     case AppointmentStatus.CANCELLED:
       return {
-        label: "Annulé",
+        label: "Cancelled",
         variant: "destructive" as const,
         icon: XCircle,
       };
     default:
       return {
-        label: "Inconnu",
+        label: "Unknown",
         variant: "secondary" as const,
         icon: AlertCircle,
       };
@@ -116,13 +116,13 @@ const getStatusConfig = (status: AppointmentStatus) => {
 
 const getDateLabel = (dateStr: string): string => {
   const date = parseISO(dateStr);
-  if (isToday(date)) return "Aujourd'hui";
-  if (isTomorrow(date)) return "Demain";
-  return format(date, "EEEE d MMMM", { locale: fr });
+  if (isToday(date)) return "Today";
+  if (isTomorrow(date)) return "Tomorrow";
+  return format(date, "EEEE, MMMM d", { locale: enUS });
 };
 
 /**
- * Combine date et time (HH:mm) en Date object
+ * Combine date and time (HH:mm) into Date object
  */
 const combineDateAndTime = (dateStr: string, timeStr: string): Date => {
   const date = parseISO(dateStr);
@@ -153,7 +153,7 @@ function AppointmentCard({
   const statusConfig = getStatusConfig(appointment.status);
   const StatusIcon = statusConfig.icon;
 
-  // Construire la date/heure du slot
+  // Build slot date/time
   const slotDate = appointment.slot
     ? combineDateAndTime(appointment.slot.date, appointment.slot.startTime)
     : new Date();
@@ -221,7 +221,7 @@ function AppointmentCard({
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => onContact(appointment)}>
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      Contacter
+                      Contact
                     </DropdownMenuItem>
 
                     {appointment.status === AppointmentStatus.CONFIRMED &&
@@ -232,14 +232,14 @@ function AppointmentCard({
                             onClick={() => onComplete(appointment.id)}
                           >
                             <CheckCircle className="h-4 w-4 mr-2" />
-                            Marquer terminé
+                            Mark Completed
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => onCancel(appointment.id)}
                             className="text-destructive"
                           >
                             <XCircle className="h-4 w-4 mr-2" />
-                            Annuler
+                            Cancel
                           </DropdownMenuItem>
                         </>
                       )}
@@ -254,7 +254,7 @@ function AppointmentCard({
                 <span>
                   {appointment.slot
                     ? getDateLabel(appointment.slot.date)
-                    : "Date inconnue"}
+                    : "Unknown date"}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -299,10 +299,6 @@ export default function PrestataireAppointmentsPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
-  // ==========================================
-  // HOOKS - Connexion au backend
-  // ==========================================
-
   const { data: appointmentsData, isLoading } = useMyAppointments();
   const { mutateAsync: cancelAppointment, isPending: isCancelling } =
     useCancelAppointment();
@@ -312,12 +308,8 @@ export default function PrestataireAppointmentsPage() {
   const appointments = appointmentsData?.data || [];
   const isActioning = isCancelling || isCompleting;
 
-  // ==========================================
   // FILTERING
-  // ==========================================
-
   const filteredAppointments = appointments.filter((apt) => {
-    // Recherche texte
     const clientName =
       `${apt.client?.firstName || ""} ${apt.client?.lastName || ""}`.toLowerCase();
     const serviceName = (apt.service?.name || "").toLowerCase();
@@ -327,12 +319,10 @@ export default function PrestataireAppointmentsPage() {
       return false;
     }
 
-    // Filtre par statut
     if (statusFilter !== "all" && apt.status !== statusFilter) {
       return false;
     }
 
-    // Filtre par date sélectionnée
     if (selectedDate && apt.slot) {
       const aptDate = parseISO(apt.slot.date);
       if (
@@ -342,7 +332,6 @@ export default function PrestataireAppointmentsPage() {
       }
     }
 
-    // Filtre par onglet (à venir / passés)
     if (apt.slot) {
       const slotDate = combineDateAndTime(apt.slot.date, apt.slot.startTime);
       if (activeTab === "upcoming") {
@@ -355,10 +344,7 @@ export default function PrestataireAppointmentsPage() {
     return true;
   });
 
-  // ==========================================
   // HANDLERS
-  // ==========================================
-
   const handleCancel = (id: string) => {
     setSelectedAppointmentId(id);
     setCancelDialogOpen(true);
@@ -376,7 +362,7 @@ export default function PrestataireAppointmentsPage() {
       setCancelReason("");
       setSelectedAppointmentId(null);
     } catch (error) {
-      // L'erreur est gérée dans le hook
+      // Error handled in hook
     }
   };
 
@@ -384,23 +370,17 @@ export default function PrestataireAppointmentsPage() {
     try {
       await completeAppointment(id);
     } catch (error) {
-      // L'erreur est gérée dans le hook
+      // Error handled in hook
     }
   };
 
   const handleContact = (appointment: Appointment) => {
-    // Naviguer vers la page de messages avec l'appointmentId
     navigate(`${ROUTES.PRESTATAIRE_MESSAGES}?appointmentId=${appointment.id}`);
   };
 
-  // Stats
   const todayCount = appointments.filter(
     (a) => a.slot && isToday(parseISO(a.slot.date))
   ).length;
-
-  // ==========================================
-  // RENDER
-  // ==========================================
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -411,21 +391,21 @@ export default function PrestataireAppointmentsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Mes rendez-vous</h1>
+          <h1 className="text-2xl font-bold">My Appointments</h1>
           <p className="text-muted-foreground">
-            {todayCount} rendez-vous aujourd'hui
+            {todayCount} appointment{todayCount !== 1 ? 's' : ''} today
           </p>
         </div>
       </div>
 
-      {/* Filtres */}
+      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un client ou service..."
+                placeholder="Search client or service..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -434,18 +414,18 @@ export default function PrestataireAppointmentsPage() {
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Statut" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value={AppointmentStatus.CONFIRMED}>
-                  Confirmé
+                  Confirmed
                 </SelectItem>
                 <SelectItem value={AppointmentStatus.COMPLETED}>
-                  Terminé
+                  Completed
                 </SelectItem>
                 <SelectItem value={AppointmentStatus.CANCELLED}>
-                  Annulé
+                  Cancelled
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -455,8 +435,8 @@ export default function PrestataireAppointmentsPage() {
                 <Button variant="outline" className="w-full md:w-auto">
                   <CalendarDays className="h-4 w-4 mr-2" />
                   {selectedDate
-                    ? format(selectedDate, "d MMM yyyy", { locale: fr })
-                    : "Choisir une date"}
+                    ? format(selectedDate, "MMM d, yyyy", { locale: enUS })
+                    : "Choose a date"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -464,7 +444,7 @@ export default function PrestataireAppointmentsPage() {
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
-                  locale={fr}
+                  locale={enUS}
                 />
                 {selectedDate && (
                   <div className="p-2 border-t">
@@ -474,7 +454,7 @@ export default function PrestataireAppointmentsPage() {
                       className="w-full"
                       onClick={() => setSelectedDate(undefined)}
                     >
-                      Effacer la date
+                      Clear date
                     </Button>
                   </div>
                 )}
@@ -488,11 +468,12 @@ export default function PrestataireAppointmentsPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="upcoming" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />À venir
+            <Calendar className="h-4 w-4" />
+            Upcoming
           </TabsTrigger>
           <TabsTrigger value="past" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
-            Passés
+            Past
           </TabsTrigger>
         </TabsList>
 
@@ -500,11 +481,11 @@ export default function PrestataireAppointmentsPage() {
           {filteredAppointments.length === 0 ? (
             <EmptyState
               icon={Calendar}
-              title="Aucun rendez-vous"
+              title="No appointments"
               description={
                 activeTab === "upcoming"
-                  ? "Vous n'avez pas de rendez-vous à venir."
-                  : "Vous n'avez pas encore de rendez-vous passés."
+                  ? "You have no upcoming appointments."
+                  : "You don't have any past appointments yet."
               }
             />
           ) : (
@@ -528,26 +509,26 @@ export default function PrestataireAppointmentsPage() {
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Annuler le rendez-vous ?</AlertDialogTitle>
+            <AlertDialogTitle>Cancel Appointment?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le client sera notifié de l'annulation par email.
+              The client will be notified of the cancellation by email.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="space-y-2">
             <Label htmlFor="cancelReason">
-              Raison de l'annulation (optionnel)
+              Cancellation reason (optional)
             </Label>
             <Textarea
               id="cancelReason"
-              placeholder="Expliquez pourquoi vous annulez ce rendez-vous..."
+              placeholder="Explain why you're cancelling this appointment..."
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
             />
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isCancelling}>Retour</AlertDialogCancel>
+            <AlertDialogCancel disabled={isCancelling}>Back</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmCancel}
               disabled={isCancelling}
@@ -556,10 +537,10 @@ export default function PrestataireAppointmentsPage() {
               {isCancelling ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Annulation...
+                  Cancelling...
                 </>
               ) : (
-                "Confirmer l'annulation"
+                "Confirm Cancellation"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

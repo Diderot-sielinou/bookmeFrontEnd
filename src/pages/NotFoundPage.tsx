@@ -1,11 +1,10 @@
 /**
  * NotFoundPage (404)
- * 
- * Page affichée lorsque l'URL demandée n'existe pas.
+ * * Page displayed when the requested URL does not exist.
  */
 
 import { Link, useNavigate } from 'react-router-dom';
-import { Home, ArrowLeft, Search, HelpCircle } from 'lucide-react';
+import { Home, ArrowLeft, Search } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/lib/constants';
@@ -27,21 +26,21 @@ export default function NotFoundPage() {
         </div>
 
         {/* Message */}
-        <h1 className="text-2xl font-bold mb-2">Page introuvable</h1>
+        <h1 className="text-3xl font-bold mb-2">Page Not Found</h1>
         <p className="text-muted-foreground mb-8">
-          Oups ! La page que vous recherchez semble avoir disparu ou n'existe pas.
+          Oops! The page you are looking for seems to have vanished or doesn't exist.
         </p>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button onClick={() => navigate(-1)} variant="outline">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
+            Go Back
           </Button>
           <Button asChild>
             <Link to={ROUTES.HOME}>
               <Home className="h-4 w-4 mr-2" />
-              Accueil
+              Back to Home
             </Link>
           </Button>
         </div>
@@ -49,17 +48,17 @@ export default function NotFoundPage() {
         {/* Help Links */}
         <div className="mt-8 pt-8 border-t">
           <p className="text-sm text-muted-foreground mb-4">
-            Vous cherchez peut-être :
+            You might be looking for:
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm">
             <Link to={ROUTES.SEARCH} className="text-primary hover:underline">
-              Rechercher un prestataire
+              Find a provider
             </Link>
             <Link to={ROUTES.LOGIN} className="text-primary hover:underline">
-              Se connecter
+              Sign in
             </Link>
             <Link to={ROUTES.REGISTER} className="text-primary hover:underline">
-              S'inscrire
+              Create an account
             </Link>
           </div>
         </div>

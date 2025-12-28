@@ -1,8 +1,13 @@
 /**
- * Page d'inscription
+ * RegisterPage Component
  * 
- * Permet de créer un compte client ou prestataire.
- * Formulaire dynamique selon le type choisi.
+ * Multi-step registration for clients and service providers.
+ * Features:
+ * - User type selection (Client/Provider)
+ * - Dynamic form validation based on type
+ * - Real-time validation feedback
+ * - Password strength indicator
+ * - Category selection for providers
  */
 
 import { useState } from 'react';
@@ -10,7 +15,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Mail, Lock, User, Phone, Building, ArrowLeft } from 'lucide-react';
+import { 
+  Eye, EyeOff, Mail, Lock, User, Phone, Building, 
+  ArrowLeft, Loader2, CheckCircle2 
+} from 'lucide-react';
 
 import { ROUTES, PROFESSIONAL_CATEGORIES, VALIDATION } from '@/lib/constants';
 import { api, getErrorMessage } from '@/lib/api';
@@ -27,86 +35,162 @@ import {
   CardTitle,
   Separator,
   Checkbox,
+  Badge,
 } from '@/components/ui';
 
 // ==========================================
-// VALIDATION
+// VALIDATION SCHEMAS
 // ==========================================
 
+const passwordValidation = z
+  .string()
+  .min(VALIDATION.PASSWORD_MIN_LENGTH, `Password must be at least ${VALIDATION.PASSWORD_MIN_LENGTH} characters`)
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+  .regex(/[@$!%*?&]/, 'Password must contain at least one special character');
+
 const baseSchema = {
-  email: z.string().min(1, 'L\'email est requis').email('Email invalide'),
-  password: z
+  email: z
     .string()
-    .min(VALIDATION.PASSWORD_MIN_LENGTH, `Minimum ${VALIDATION.PASSWORD_MIN_LENGTH} caractères`)
-    .regex(/[A-Z]/, 'Au moins une majuscule requise')
-    .regex(/[0-9]/, 'Au moins un chiffre requis'),
-  confirmPassword: z.string().min(1, 'Confirmation requise'),
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address'),
+  password: passwordValidation,
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
 };
 
 const clientSchema = z.object({
   ...baseSchema,
-  firstName: z.string().min(2, 'Prénom requis (min 2 caractères)'),
-  lastName: z.string().min(2, 'Nom requis (min 2 caractères)'),
+  firstName: z
+    .string()
+    .min(2, 'First name must be at least 2 characters')
+    .max(100, 'First name is too long'),
+  lastName: z
+    .string()
+    .min(2, 'Last name must be at least 2 characters')
+    .max(100, 'Last name is too long'),
   phone: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: 'Les mots de passe ne correspondent pas',
+  message: 'Passwords do not match',
   path: ['confirmPassword'],
 });
 
-const prestataireSchema = z.object({
+const providerSchema = z.object({
   ...baseSchema,
-  businessName: z.string().min(2, 'Nom de l\'entreprise requis'),
-  firstName: z.string().min(2, 'Prénom requis'),
-  lastName: z.string().min(2, 'Nom requis'),
-  phone: z.string().min(10, 'Téléphone requis'),
-  categories: z.array(z.string()).min(1, 'Sélectionnez au moins une catégorie'),
+  businessName: z
+    .string()
+    .min(2, 'Business name must be at least 2 characters')
+    .max(255, 'Business name is too long'),
+  firstName: z
+    .string()
+    .min(2, 'First name must be at least 2 characters')
+    .max(100, 'First name is too long'),
+  lastName: z
+    .string()
+    .min(2, 'Last name must be at least 2 characters')
+    .max(100, 'Last name is too long'),
+  phone: z
+    .string()
+    .min(10, 'Please enter a valid phone number'),
+  categories: z
+    .array(z.string())
+    .min(1, 'Please select at least one category'),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: 'Les mots de passe ne correspondent pas',
+  message: 'Passwords do not match',
   path: ['confirmPassword'],
 });
 
 type ClientFormData = z.infer<typeof clientSchema>;
-type PrestataireFormData = z.infer<typeof prestataireSchema>;
+type ProviderFormData = z.infer<typeof providerSchema>;
 
 // ==========================================
-// COMPOSANT
+// PASSWORD STRENGTH INDICATOR
+// ==========================================
+
+interface PasswordStrengthProps {
+  password: string;
+}
+
+function PasswordStrength({ password }: PasswordStrengthProps) {
+  const getStrength = () => {
+    if (!password) return { score: 0, label: '', color: '' };
+    
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[@$!%*?&]/.test(password)) score++;
+
+    if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500' };
+    if (score === 3) return { score, label: 'Fair', color: 'bg-orange-500' };
+    if (score === 4) return { score, label: 'Good', color: 'bg-yellow-500' };
+    return { score, label: 'Strong', color: 'bg-green-500' };
+  };
+
+  const { score, label, color } = getStrength();
+
+  if (!password) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-1">
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className={`h-1 flex-1 rounded ${i < score ? color : 'bg-gray-200'}`}
+          />
+        ))}
+      </div>
+      {label && (
+        <p className="text-xs text-muted-foreground">
+          Password strength: <span className="font-medium">{label}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// COMPONENT
 // ==========================================
 
 export function RegisterPage() {
   const navigate = useNavigate();
   
-  const [userType, setUserType] = useState<'client' | 'prestataire' | null>(null);
+  const [userType, setUserType] = useState<'client' | 'provider' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [passwordValue, setPasswordValue] = useState('');
 
-  // Formulaire Client
+  // Client form
   const clientForm = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
-    defaultValues: { firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '' },
+    mode: 'onBlur',
   });
 
-  // Formulaire Prestataire
-  const prestataireForm = useForm<PrestataireFormData>({
-    resolver: zodResolver(prestataireSchema),
-    defaultValues: { businessName: '', firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '', categories: [] },
+  // Provider form
+  const providerForm = useForm<ProviderFormData>({
+    resolver: zodResolver(providerSchema),
+    mode: 'onBlur',
   });
 
-  // Toggle catégorie
+  // Toggle category selection
   const toggleCategory = (category: string) => {
     setSelectedCategories((prev) => {
       const updated = prev.includes(category)
         ? prev.filter((c) => c !== category)
         : [...prev, category];
-      prestataireForm.setValue('categories', updated);
+      providerForm.setValue('categories', updated, { shouldValidate: true });
       return updated;
     });
   };
 
-  // Soumission Client
+  // Submit client registration
   const onSubmitClient = async (data: ClientFormData) => {
     setIsLoading(true);
-    console.log(`register client data : ${JSON.stringify(data)}`)
+    
     try {
       await api.post('/auth/register/client', {
         email: data.email,
@@ -115,18 +199,30 @@ export function RegisterPage() {
         lastName: data.lastName,
         phone: data.phone || undefined,
       });
-      showSuccess('Inscription réussie ! Vérifiez votre email.');
-      navigate(ROUTES.LOGIN, { state: { message: 'Un email de vérification vous a été envoyé.' } });
+      
+      showSuccess('Registration successful! Please check your email.');
+      navigate(ROUTES.LOGIN, { 
+        state: { message: 'A verification email has been sent to your inbox.' } 
+      });
     } catch (error) {
-      showError(getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      
+      if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('exist')) {
+        clientForm.setError('email', { 
+          message: 'This email is already registered. Please sign in instead.' 
+        });
+      } else {
+        showError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Soumission Prestataire
-  const onSubmitPrestataire = async (data: PrestataireFormData) => {
+  // Submit provider registration
+  const onSubmitProvider = async (data: ProviderFormData) => {
     setIsLoading(true);
+    
     try {
       await api.post('/auth/register/prestataire', {
         email: data.email,
@@ -137,22 +233,38 @@ export function RegisterPage() {
         phone: data.phone,
         categories: data.categories,
       });
-      showSuccess('Inscription réussie ! Vérifiez votre email.');
-      navigate(ROUTES.LOGIN, { state: { message: 'Un email de vérification vous a été envoyé. Votre compte sera validé par notre équipe.' } });
+      
+      showSuccess('Registration successful! Please check your email.');
+      navigate(ROUTES.LOGIN, { 
+        state: { 
+          message: 'A verification email has been sent. Your account will be reviewed by our team.' 
+        } 
+      });
     } catch (error) {
-      showError(getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      
+      if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('exist')) {
+        providerForm.setError('email', { 
+          message: 'This email is already registered. Please sign in instead.' 
+        });
+      } else {
+        showError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Écran de sélection du type
+  // ==========================================
+  // USER TYPE SELECTION SCREEN
+  // ==========================================
+
   if (!userType) {
     return (
       <Card className="w-full shadow-lg">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Créer un compte</CardTitle>
-          <CardDescription>Choisissez votre type de compte</CardDescription>
+          <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+          <CardDescription>Choose your account type to get started</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <button
@@ -164,16 +276,16 @@ export function RegisterPage() {
                 <User className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Je suis un client</h3>
+                <h3 className="font-semibold text-lg">I'm a Client</h3>
                 <p className="text-sm text-muted-foreground">
-                  Je souhaite réserver des rendez-vous
+                  I want to book appointments with service providers
                 </p>
               </div>
             </div>
           </button>
 
           <button
-            onClick={() => setUserType('prestataire')}
+            onClick={() => setUserType('provider')}
             className="w-full p-6 border-2 rounded-lg hover:border-teal-500 hover:bg-teal-50/50 transition-all text-left group"
           >
             <div className="flex items-center gap-4">
@@ -181,9 +293,9 @@ export function RegisterPage() {
                 <Building className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Je suis un prestataire</h3>
+                <h3 className="font-semibold text-lg">I'm a Service Provider</h3>
                 <p className="text-sm text-muted-foreground">
-                  Je propose mes services et gère mes rendez-vous
+                  I offer services and want to manage my appointments
                 </p>
               </div>
             </div>
@@ -192,9 +304,9 @@ export function RegisterPage() {
         <CardFooter className="flex flex-col gap-4">
           <Separator />
           <p className="text-sm text-muted-foreground text-center">
-            Déjà un compte ?{' '}
+            Already have an account?{' '}
             <Link to={ROUTES.LOGIN} className="text-cyan-600 hover:underline font-medium">
-              Se connecter
+              Sign in
             </Link>
           </p>
         </CardFooter>
@@ -202,199 +314,422 @@ export function RegisterPage() {
     );
   }
 
-  // Formulaire Client
+  // ==========================================
+  // CLIENT REGISTRATION FORM
+  // ==========================================
+
   if (userType === 'client') {
     return (
       <Card className="w-full shadow-lg">
         <CardHeader className="space-y-1">
           <button
             onClick={() => setUserType(null)}
-            className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
+            className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" /> Retour
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </button>
-          <CardTitle className="text-2xl font-bold">Inscription Client</CardTitle>
-          <CardDescription>Créez votre compte pour réserver des rendez-vous</CardDescription>
+          <CardTitle className="text-2xl font-bold">Client Registration</CardTitle>
+          <CardDescription>Create your account to book appointments</CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={clientForm.handleSubmit(onSubmitClient)} className="space-y-4">
+            {/* Name fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Prénom *</Label>
-                <Input id="firstName" {...clientForm.register('firstName')} error={!!clientForm.formState.errors.firstName} />
+                <Label htmlFor="firstName">
+                  First Name <span className="text-destructive">*</span>
+                </Label>
+                <Input 
+                  id="firstName" 
+                  placeholder="John"
+                  disabled={isLoading}
+                  error={!!clientForm.formState.errors.firstName}
+                  {...clientForm.register('firstName')} 
+                />
                 {clientForm.formState.errors.firstName && (
-                  <p className="text-xs text-destructive">{clientForm.formState.errors.firstName.message}</p>
+                  <p className="text-xs text-destructive">
+                    {clientForm.formState.errors.firstName.message}
+                  </p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Nom *</Label>
-                <Input id="lastName" {...clientForm.register('lastName')} error={!!clientForm.formState.errors.lastName} />
+                <Label htmlFor="lastName">
+                  Last Name <span className="text-destructive">*</span>
+                </Label>
+                <Input 
+                  id="lastName" 
+                  placeholder="Doe"
+                  disabled={isLoading}
+                  error={!!clientForm.formState.errors.lastName}
+                  {...clientForm.register('lastName')} 
+                />
                 {clientForm.formState.errors.lastName && (
-                  <p className="text-xs text-destructive">{clientForm.formState.errors.lastName.message}</p>
+                  <p className="text-xs text-destructive">
+                    {clientForm.formState.errors.lastName.message}
+                  </p>
                 )}
               </div>
             </div>
 
+            {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input id="email" type="email" leftIcon={<Mail className="h-4 w-4" />} {...clientForm.register('email')} error={!!clientForm.formState.errors.email} />
+              <Label htmlFor="email">
+                Email <span className="text-destructive">*</span>
+              </Label>
+              <Input 
+                id="email" 
+                type="email"
+                placeholder="example@email.com"
+                autoComplete="email"
+                leftIcon={<Mail className="h-4 w-4" />}
+                disabled={isLoading}
+                error={!!clientForm.formState.errors.email}
+                {...clientForm.register('email')} 
+              />
               {clientForm.formState.errors.email && (
-                <p className="text-xs text-destructive">{clientForm.formState.errors.email.message}</p>
+                <p className="text-xs text-destructive">
+                  {clientForm.formState.errors.email.message}
+                </p>
               )}
             </div>
 
+            {/* Phone */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Téléphone</Label>
-              <Input id="phone" type="tel" leftIcon={<Phone className="h-4 w-4" />} {...clientForm.register('phone')} />
+              <Label htmlFor="phone">Phone (optional)</Label>
+              <Input 
+                id="phone" 
+                type="tel"
+                placeholder="+1234567890"
+                leftIcon={<Phone className="h-4 w-4" />}
+                disabled={isLoading}
+                {...clientForm.register('phone')} 
+              />
             </div>
 
+            {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe *</Label>
+              <Label htmlFor="password">
+                Password <span className="text-destructive">*</span>
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
                   leftIcon={<Lock className="h-4 w-4" />}
-                  {...clientForm.register('password')}
+                  disabled={isLoading}
                   error={!!clientForm.formState.errors.password}
+                  {...clientForm.register('password', {
+                    onChange: (e) => setPasswordValue(e.target.value),
+                  })}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               {clientForm.formState.errors.password && (
-                <p className="text-xs text-destructive">{clientForm.formState.errors.password.message}</p>
+                <p className="text-xs text-destructive">
+                  {clientForm.formState.errors.password.message}
+                </p>
               )}
-              <p className="text-xs text-muted-foreground">8 caractères minimum, 1 majuscule, 1 chiffre</p>
+              <PasswordStrength password={passwordValue} />
             </div>
 
+            {/* Confirm Password */}
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
+              <Label htmlFor="confirmPassword">
+                Confirm Password <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="confirmPassword"
                 type="password"
+                placeholder="••••••••"
+                autoComplete="new-password"
                 leftIcon={<Lock className="h-4 w-4" />}
-                {...clientForm.register('confirmPassword')}
+                disabled={isLoading}
                 error={!!clientForm.formState.errors.confirmPassword}
+                {...clientForm.register('confirmPassword')}
               />
               {clientForm.formState.errors.confirmPassword && (
-                <p className="text-xs text-destructive">{clientForm.formState.errors.confirmPassword.message}</p>
+                <p className="text-xs text-destructive">
+                  {clientForm.formState.errors.confirmPassword.message}
+                </p>
               )}
             </div>
 
-            <Button type="submit" className="w-full" isLoading={isLoading}>
-              Créer mon compte
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                'Create Account'
+              )}
             </Button>
           </form>
         </CardContent>
+
+        <CardFooter className="flex flex-col gap-4">
+          <Separator />
+          <p className="text-sm text-muted-foreground text-center">
+            Already have an account?{' '}
+            <Link to={ROUTES.LOGIN} className="text-cyan-600 hover:underline font-medium">
+              Sign in
+            </Link>
+          </p>
+        </CardFooter>
       </Card>
     );
   }
 
-  // Formulaire Prestataire
+  // ==========================================
+  // PROVIDER REGISTRATION FORM
+  // ==========================================
+
   return (
-    <Card className="w-full shadow-lg max-w-lg">
+    <Card className="w-full shadow-lg max-w-2xl">
       <CardHeader className="space-y-1">
         <button
           onClick={() => setUserType(null)}
-          className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
+          className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2 transition-colors"
         >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Retour
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </button>
-        <CardTitle className="text-2xl font-bold">Inscription Prestataire</CardTitle>
-        <CardDescription>Créez votre compte professionnel</CardDescription>
+        <CardTitle className="text-2xl font-bold">Provider Registration</CardTitle>
+        <CardDescription>Create your professional account</CardDescription>
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={prestataireForm.handleSubmit(onSubmitPrestataire)} className="space-y-4">
+        <form onSubmit={providerForm.handleSubmit(onSubmitProvider)} className="space-y-4">
+          {/* Business Name */}
           <div className="space-y-2">
-            <Label htmlFor="businessName">Nom de l'entreprise *</Label>
+            <Label htmlFor="businessName">
+              Business Name <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="businessName"
+              placeholder="Your Business Name"
               leftIcon={<Building className="h-4 w-4" />}
-              {...prestataireForm.register('businessName')}
-              error={!!prestataireForm.formState.errors.businessName}
+              disabled={isLoading}
+              error={!!providerForm.formState.errors.businessName}
+              {...providerForm.register('businessName')}
             />
-            {prestataireForm.formState.errors.businessName && (
-              <p className="text-xs text-destructive">{prestataireForm.formState.errors.businessName.message}</p>
+            {providerForm.formState.errors.businessName && (
+              <p className="text-xs text-destructive">
+                {providerForm.formState.errors.businessName.message}
+              </p>
             )}
           </div>
 
+          {/* Name fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName">Prénom *</Label>
-              <Input id="firstName" {...prestataireForm.register('firstName')} error={!!prestataireForm.formState.errors.firstName} />
+              <Label htmlFor="firstName">
+                First Name <span className="text-destructive">*</span>
+              </Label>
+              <Input 
+                id="firstName" 
+                placeholder="John"
+                disabled={isLoading}
+                error={!!providerForm.formState.errors.firstName}
+                {...providerForm.register('firstName')} 
+              />
+              {providerForm.formState.errors.firstName && (
+                <p className="text-xs text-destructive">
+                  {providerForm.formState.errors.firstName.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName">Nom *</Label>
-              <Input id="lastName" {...prestataireForm.register('lastName')} error={!!prestataireForm.formState.errors.lastName} />
+              <Label htmlFor="lastName">
+                Last Name <span className="text-destructive">*</span>
+              </Label>
+              <Input 
+                id="lastName" 
+                placeholder="Doe"
+                disabled={isLoading}
+                error={!!providerForm.formState.errors.lastName}
+                {...providerForm.register('lastName')} 
+              />
+              {providerForm.formState.errors.lastName && (
+                <p className="text-xs text-destructive">
+                  {providerForm.formState.errors.lastName.message}
+                </p>
+              )}
             </div>
           </div>
 
+          {/* Email */}
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
-            <Input id="email" type="email" leftIcon={<Mail className="h-4 w-4" />} {...prestataireForm.register('email')} error={!!prestataireForm.formState.errors.email} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">Téléphone *</Label>
-            <Input id="phone" type="tel" leftIcon={<Phone className="h-4 w-4" />} {...prestataireForm.register('phone')} error={!!prestataireForm.formState.errors.phone} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Catégories de services *</Label>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-              {PROFESSIONAL_CATEGORIES.map((category) => (
-                <div key={category} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`cat-${category}`}
-                    checked={selectedCategories.includes(category)}
-                    onCheckedChange={() => toggleCategory(category)}
-                  />
-                  <label htmlFor={`cat-${category}`} className="text-sm cursor-pointer">{category}</label>
-                </div>
-              ))}
-            </div>
-            {prestataireForm.formState.errors.categories && (
-              <p className="text-xs text-destructive">{prestataireForm.formState.errors.categories.message}</p>
+            <Label htmlFor="email">
+              Email <span className="text-destructive">*</span>
+            </Label>
+            <Input 
+              id="email" 
+              type="email"
+              placeholder="business@email.com"
+              autoComplete="email"
+              leftIcon={<Mail className="h-4 w-4" />}
+              disabled={isLoading}
+              error={!!providerForm.formState.errors.email}
+              {...providerForm.register('email')} 
+            />
+            {providerForm.formState.errors.email && (
+              <p className="text-xs text-destructive">
+                {providerForm.formState.errors.email.message}
+              </p>
             )}
           </div>
 
+          {/* Phone */}
           <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe *</Label>
+            <Label htmlFor="phone">
+              Phone <span className="text-destructive">*</span>
+            </Label>
+            <Input 
+              id="phone" 
+              type="tel"
+              placeholder="+1234567890"
+              leftIcon={<Phone className="h-4 w-4" />}
+              disabled={isLoading}
+              error={!!providerForm.formState.errors.phone}
+              {...providerForm.register('phone')} 
+            />
+            {providerForm.formState.errors.phone && (
+              <p className="text-xs text-destructive">
+                {providerForm.formState.errors.phone.message}
+              </p>
+            )}
+          </div>
+
+          {/* Categories */}
+          <div className="space-y-2">
+            <Label>
+              Service Categories <span className="text-destructive">*</span>
+            </Label>
+            <div className="border rounded-md p-4 max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                {PROFESSIONAL_CATEGORIES.map((category) => (
+                  <div key={category} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`cat-${category}`}
+                      checked={selectedCategories.includes(category)}
+                      onCheckedChange={() => toggleCategory(category)}
+                      disabled={isLoading}
+                    />
+                    <label 
+                      htmlFor={`cat-${category}`} 
+                      className="text-sm cursor-pointer select-none"
+                    >
+                      {category}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {selectedCategories.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {selectedCategories.map((cat) => (
+                  <Badge key={cat} variant="secondary" className="text-xs">
+                    {cat}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {providerForm.formState.errors.categories && (
+              <p className="text-xs text-destructive">
+                {providerForm.formState.errors.categories.message}
+              </p>
+            )}
+          </div>
+
+          {/* Password */}
+          <div className="space-y-2">
+            <Label htmlFor="password">
+              Password <span className="text-destructive">*</span>
+            </Label>
             <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                autoComplete="new-password"
                 leftIcon={<Lock className="h-4 w-4" />}
-                {...prestataireForm.register('password')}
+                disabled={isLoading}
+                error={!!providerForm.formState.errors.password}
+                {...providerForm.register('password', {
+                  onChange: (e) => setPasswordValue(e.target.value),
+                })}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isLoading}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">8 caractères minimum, 1 majuscule, 1 chiffre</p>
+            {providerForm.formState.errors.password && (
+              <p className="text-xs text-destructive">
+                {providerForm.formState.errors.password.message}
+              </p>
+            )}
+            <PasswordStrength password={passwordValue} />
           </div>
 
+          {/* Confirm Password */}
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
-            <Input id="confirmPassword" type="password" leftIcon={<Lock className="h-4 w-4" />} {...prestataireForm.register('confirmPassword')} />
+            <Label htmlFor="confirmPassword">
+              Confirm Password <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="••••••••"
+              autoComplete="new-password"
+              leftIcon={<Lock className="h-4 w-4" />}
+              disabled={isLoading}
+              error={!!providerForm.formState.errors.confirmPassword}
+              {...providerForm.register('confirmPassword')}
+            />
+            {providerForm.formState.errors.confirmPassword && (
+              <p className="text-xs text-destructive">
+                {providerForm.formState.errors.confirmPassword.message}
+              </p>
+            )}
           </div>
 
-          <Button type="submit" className="w-full" isLoading={isLoading}>
-            Créer mon compte pro
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating account...
+              </>
+            ) : (
+              'Create Professional Account'
+            )}
           </Button>
         </form>
       </CardContent>
+
+      <CardFooter className="flex flex-col gap-4">
+        <Separator />
+        <p className="text-sm text-muted-foreground text-center">
+          Already have an account?{' '}
+          <Link to={ROUTES.LOGIN} className="text-cyan-600 hover:underline font-medium">
+            Sign in
+          </Link>
+        </p>
+      </CardFooter>
     </Card>
   );
 }

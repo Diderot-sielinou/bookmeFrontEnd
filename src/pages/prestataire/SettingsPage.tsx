@@ -1,11 +1,11 @@
 /**
- * Page Paramètres (Prestataire) - ALIGNÉ AVEC BACKEND
+ * Settings Page (Provider) - ALIGNED WITH BACKEND
  *
- * Configuration du compte prestataire :
- * - Profil public avec upload avatar et portfolio
- * - Paramètres de réservation (alignés avec DTOs backend)
- * - Notifications (utilise NotificationPreferences)
- * - Mot de passe
+ * Provider account configuration:
+ * - Public profile with avatar and portfolio upload
+ * - Booking settings (aligned with backend DTOs)
+ * - Notifications (uses NotificationPreferences)
+ * - Password
  */
 
 import { useState, useEffect } from "react";
@@ -74,39 +74,38 @@ import { Spinner } from "@/components/ui/spinner";
 // ==========================================
 
 const profileSchema = z.object({
-  businessName: z.string().min(2, "Minimum 2 caractères"),
-  firstName: z.string().min(2, "Minimum 2 caractères"),
-  lastName: z.string().min(2, "Minimum 2 caractères"),
-  phone: z.string().min(10, "Téléphone invalide"),
-  bio: z.string().max(500, "Maximum 500 caractères").optional(),
+  businessName: z.string().min(2, "Minimum 2 characters"),
+  firstName: z.string().min(2, "Minimum 2 characters"),
+  lastName: z.string().min(2, "Minimum 2 characters"),
+  phone: z.string().min(10, "Invalid phone number"),
+  bio: z.string().max(500, "Maximum 500 characters").optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   postalCode: z.string().optional(),
-  // website: z.string().url('URL invalide').optional().or(z.literal('')),
 });
 
 const bookingSettingsSchema = z.object({
-  minBookingNotice: z.number().min(0), // En HEURES
-  pauseDuration: z.number().min(0), // En MINUTES
-  minCancellationHours: z.number().min(0), // En HEURES
+  minBookingNotice: z.number().min(0), // In HOURS
+  pauseDuration: z.number().min(0), // In MINUTES
+  minCancellationHours: z.number().min(0), // In HOURS
   cancellationPolicy: z.string().optional(),
 });
 
 const passwordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Mot de passe actuel requis"),
+    currentPassword: z.string().min(1, "Current password required"),
     newPassword: z
       .string()
       .min(
         VALIDATION.PASSWORD_MIN_LENGTH,
-        `Minimum ${VALIDATION.PASSWORD_MIN_LENGTH} caractères`
+        `Minimum ${VALIDATION.PASSWORD_MIN_LENGTH} characters`
       )
-      .regex(/[A-Z]/, "Au moins une majuscule")
-      .regex(/[0-9]/, "Au moins un chiffre"),
-    confirmPassword: z.string().min(1, "Confirmation requise"),
+      .regex(/[A-Z]/, "At least one uppercase letter")
+      .regex(/[0-9]/, "At least one digit"),
+    confirmPassword: z.string().min(1, "Confirmation required"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Les mots de passe ne correspondent pas",
+    message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
@@ -138,7 +137,7 @@ function AvatarUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // ✅ Validation avant upload
+    // Validation before upload
     const error = validateFile(file, {
       maxSizeMB: 5,
       allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
@@ -149,25 +148,25 @@ function AvatarUpload({
       return;
     }
 
-    // Preview local
+    // Local preview
     const localUrl = URL.createObjectURL(file);
     setPreviewUrl(localUrl);
 
     setIsUploading(true);
     try {
-      // ✅ Upload vers Cloudinary via backend
+      // Upload to Cloudinary via backend
       const result = await uploadAvatar(file);
 
-      // ✅ Mettre à jour le profil avec l'URL sécurisée
+      // Update profile with secure URL
       await onAvatarChange(result.secureUrl);
 
-      showSuccess("Avatar mis à jour !");
+      showSuccess("Avatar updated!");
 
-      // Nettoyer l'URL locale
+      // Clean up local URL
       URL.revokeObjectURL(localUrl);
       setPreviewUrl(result.secureUrl);
     } catch (error) {
-      showError("Impossible d'uploader l'avatar");
+      showError("Unable to upload avatar");
       setPreviewUrl(currentAvatar);
       URL.revokeObjectURL(localUrl);
     } finally {
@@ -227,13 +226,13 @@ function PortfolioUpload({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // ✅ Vérifier le nombre max d'images
+    // Check max images
     if (previews.length + files.length > maxImages) {
-      showError(`Maximum ${maxImages} images autorisées`);
+      showError(`Maximum ${maxImages} images allowed`);
       return;
     }
 
-    // ✅ Valider chaque fichier
+    // Validate each file
     for (const file of files) {
       const error = validateFile(file, {
         maxSizeMB: 5,
@@ -245,7 +244,7 @@ function PortfolioUpload({
       }
     }
 
-    // Créer previews locales
+    // Create local previews
     const localUrls = files.map(file => URL.createObjectURL(file));
     setPreviews(prev => [...prev, ...localUrls]);
 
@@ -253,31 +252,31 @@ function PortfolioUpload({
     try {
       console.log(`Uploading ${files.length} files...`);
       
-      // ✅ Upload TOUTES les images en une seule requête
+      // Upload ALL images in a single request
       const results = await uploadPortfolioImages(files);
       
       console.log('Upload successful:', results);
       
-      // ✅ Extraire les URLs sécurisées
+      // Extract secure URLs
       const uploadedUrls = results.map(r => r.secureUrl);
       
-      // Mettre à jour avec les vraies URLs
+      // Update with real URLs
       const newImages = [...currentImages, ...uploadedUrls];
       await onImagesChange(newImages);
       setPreviews(newImages);
       
-      showSuccess(`${files.length} image(s) ajoutée(s) !`);
+      showSuccess(`${files.length} image(s) added!`);
       
-      // Nettoyer les URLs locales
+      // Clean up local URLs
       localUrls.forEach(url => URL.revokeObjectURL(url));
     } catch (error) {
       console.error('Upload failed:', error);
-      showError("Impossible d'uploader les images");
+      showError("Unable to upload images");
       setPreviews(currentImages);
       localUrls.forEach(url => URL.revokeObjectURL(url));
     } finally {
       setIsUploading(false);
-      // ✅ Réinitialiser l'input pour permettre de réuploader les mêmes fichiers
+      // Reset input to allow re-uploading same files
       e.target.value = '';
     }
   };
@@ -287,16 +286,16 @@ function PortfolioUpload({
     const newImages = previews.filter((_, i) => i !== index);
     
     try {
-      // ✅ Supprimer de Cloudinary si c'est une vraie URL
+      // Delete from Cloudinary if it's a real URL
       if (imageToRemove.includes('cloudinary.com')) {
-        // Extraire le public_id de l'URL Cloudinary
+        // Extract public_id from Cloudinary URL
         // Format: https://res.cloudinary.com/cloud/image/upload/v123456/folder/public_id.ext
         const parts = imageToRemove.split('/');
         const uploadIndex = parts.indexOf('upload');
         if (uploadIndex !== -1 && parts.length > uploadIndex + 1) {
-          // Le public_id est après 'upload' et peut contenir plusieurs segments
+          // public_id is after 'upload' and can contain multiple segments
           const publicIdWithExt = parts.slice(uploadIndex + 2).join('/');
-          const publicId = publicIdWithExt.split('.')[0]; // Retirer l'extension
+          const publicId = publicIdWithExt.split('.')[0]; // Remove extension
           
           console.log('Deleting file:', publicId);
           await deleteFile(publicId);
@@ -305,16 +304,16 @@ function PortfolioUpload({
       
       await onImagesChange(newImages);
       setPreviews(newImages);
-      showSuccess('Image supprimée');
+      showSuccess('Image deleted');
     } catch (error) {
       console.error('Delete failed:', error);
-      showError("Impossible de supprimer l'image");
+      showError("Unable to delete image");
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Grille d'images */}
+      {/* Image grid */}
       <div className="grid grid-cols-3 gap-4">
         {previews.map((url, index) => (
           <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group">
@@ -332,7 +331,7 @@ function PortfolioUpload({
           </div>
         ))}
         
-        {/* Bouton d'ajout */}
+        {/* Add button */}
         {previews.length < maxImages && (
           <label 
             htmlFor="portfolio-upload"
@@ -343,7 +342,7 @@ function PortfolioUpload({
             ) : (
               <>
                 <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">Ajouter</span>
+                <span className="text-sm text-gray-500">Add</span>
               </>
             )}
           </label>
@@ -361,7 +360,7 @@ function PortfolioUpload({
       />
 
       <p className="text-sm text-muted-foreground">
-        {previews.length} / {maxImages} images • Max 5 Mo par image
+        {previews.length} / {maxImages} images • Max 5 MB per image
       </p>
     </div>
   );
@@ -401,7 +400,6 @@ function ProfileForm({
       address: profile.address || "",
       city: profile.city || "",
       postalCode: profile.postalCode || "",
-      // website: profile.website || '',
     },
   });
 
@@ -409,7 +407,7 @@ function ProfileForm({
     <div className="space-y-8">
       {/* Avatar */}
       <div className="space-y-4">
-        <Label>Photo de profil</Label>
+        <Label>Profile Photo</Label>
         <AvatarUpload
           currentAvatar={profile.avatar}
           firstName={profile.firstName}
@@ -425,7 +423,7 @@ function ProfileForm({
         <div>
           <Label>Portfolio</Label>
           <p className="text-sm text-muted-foreground mt-1">
-            Ajoutez jusqu'à 10 images de vos réalisations
+            Add up to 10 images of your work
           </p>
         </div>
         <PortfolioUpload
@@ -437,11 +435,11 @@ function ProfileForm({
 
       <Separator />
 
-      {/* Formulaire profil */}
+      {/* Profile form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Business name */}
         <div className="space-y-2">
-          <Label htmlFor="businessName">Nom de l'entreprise *</Label>
+          <Label htmlFor="businessName">Business Name *</Label>
           <Input
             id="businessName"
             leftIcon={<Building className="h-4 w-4" />}
@@ -458,7 +456,7 @@ function ProfileForm({
         {/* Name */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="firstName">Prénom *</Label>
+            <Label htmlFor="firstName">First Name *</Label>
             <Input
               id="firstName"
               {...register("firstName")}
@@ -466,7 +464,7 @@ function ProfileForm({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="lastName">Nom *</Label>
+            <Label htmlFor="lastName">Last Name *</Label>
             <Input
               id="lastName"
               {...register("lastName")}
@@ -477,7 +475,7 @@ function ProfileForm({
 
         {/* Contact */}
         <div className="space-y-2">
-          <Label htmlFor="phone">Téléphone *</Label>
+          <Label htmlFor="phone">Phone *</Label>
           <Input
             id="phone"
             type="tel"
@@ -489,59 +487,44 @@ function ProfileForm({
 
         {/* Bio */}
         <div className="space-y-2">
-          <Label htmlFor="bio">Présentation</Label>
+          <Label htmlFor="bio">Bio</Label>
           <Textarea
             id="bio"
-            placeholder="Présentez-vous et vos services..."
+            placeholder="Introduce yourself and your services..."
             rows={4}
             {...register("bio")}
           />
           <p className="text-xs text-muted-foreground">
-            Maximum 500 caractères
+            Maximum 500 characters
           </p>
         </div>
 
         {/* Address */}
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="address">Adresse</Label>
+            <Label htmlFor="address">Address</Label>
             <Input
               id="address"
               leftIcon={<MapPin className="h-4 w-4" />}
-              placeholder="123 rue de Paris"
+              placeholder="123 Main Street"
               {...register("address")}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="city">Ville</Label>
+              <Label htmlFor="city">City</Label>
               <Input id="city" {...register("city")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="postalCode">Code postal</Label>
+              <Label htmlFor="postalCode">Postal Code</Label>
               <Input id="postalCode" {...register("postalCode")} />
             </div>
           </div>
         </div>
 
-        {/* Website */}
-        {/* <div className="space-y-2">
-          <Label htmlFor="website">Site web</Label>
-          <Input
-            id="website"
-            type="url"
-            leftIcon={<Globe className="h-4 w-4" />}
-            placeholder="https://monsite.com"
-            {...register('website')}
-          />
-          {errors.website && (
-            <p className="text-sm text-destructive">{errors.website.message}</p>
-          )}
-        </div> */}
-
         <Button type="submit" disabled={!isDirty} isLoading={isLoading}>
           <Save className="h-4 w-4 mr-2" />
-          Enregistrer les informations
+          Save Information
         </Button>
       </form>
     </div>
@@ -549,7 +532,7 @@ function ProfileForm({
 }
 
 // ==========================================
-// BOOKING SETTINGS FORM - ALIGNÉ BACKEND
+// BOOKING SETTINGS FORM - BACKEND ALIGNED
 // ==========================================
 
 interface BookingSettingsFormProps {
@@ -576,9 +559,9 @@ function BookingSettingsForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* ✅ Min booking notice - EN HEURES */}
+      {/* Min booking notice - IN HOURS */}
       <div className="space-y-2">
-        <Label>Délai minimum de réservation</Label>
+        <Label>Minimum Booking Notice</Label>
         <Select
           value={String(watch("minBookingNotice"))}
           onValueChange={(v) =>
@@ -589,22 +572,22 @@ function BookingSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="0">Pas de délai</SelectItem>
-            <SelectItem value="1">1 heure</SelectItem>
-            <SelectItem value="2">2 heures</SelectItem>
-            <SelectItem value="4">4 heures</SelectItem>
-            <SelectItem value="24">24 heures</SelectItem>
-            <SelectItem value="48">48 heures</SelectItem>
+            <SelectItem value="0">No delay</SelectItem>
+            <SelectItem value="1">1 hour</SelectItem>
+            <SelectItem value="2">2 hours</SelectItem>
+            <SelectItem value="4">4 hours</SelectItem>
+            <SelectItem value="24">24 hours</SelectItem>
+            <SelectItem value="48">48 hours</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Temps minimum avant qu'un client puisse réserver
+          Minimum time before a client can book
         </p>
       </div>
 
-      {/* ✅ Pause duration - EN MINUTES */}
+      {/* Pause duration - IN MINUTES */}
       <div className="space-y-2">
-        <Label>Pause entre les rendez-vous</Label>
+        <Label>Break Between Appointments</Label>
         <Select
           value={String(watch("pauseDuration"))}
           onValueChange={(v) =>
@@ -615,7 +598,7 @@ function BookingSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="0">Pas de pause</SelectItem>
+            <SelectItem value="0">No break</SelectItem>
             <SelectItem value="5">5 minutes</SelectItem>
             <SelectItem value="10">10 minutes</SelectItem>
             <SelectItem value="15">15 minutes</SelectItem>
@@ -623,13 +606,13 @@ function BookingSettingsForm({
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Durée de pause entre chaque rendez-vous
+          Break duration between each appointment
         </p>
       </div>
 
-      {/* ✅ Min cancellation hours - EN HEURES */}
+      {/* Min cancellation hours - IN HOURS */}
       <div className="space-y-2">
-        <Label>Délai minimum d'annulation</Label>
+        <Label>Minimum Cancellation Notice</Label>
         <Select
           value={String(watch("minCancellationHours"))}
           onValueChange={(v) =>
@@ -640,16 +623,16 @@ function BookingSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="0">Pas de délai</SelectItem>
-            <SelectItem value="1">1 heure</SelectItem>
-            <SelectItem value="2">2 heures</SelectItem>
-            <SelectItem value="4">4 heures</SelectItem>
-            <SelectItem value="24">24 heures</SelectItem>
-            <SelectItem value="48">48 heures</SelectItem>
+            <SelectItem value="0">No delay</SelectItem>
+            <SelectItem value="1">1 hour</SelectItem>
+            <SelectItem value="2">2 hours</SelectItem>
+            <SelectItem value="4">4 hours</SelectItem>
+            <SelectItem value="24">24 hours</SelectItem>
+            <SelectItem value="48">48 hours</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Délai minimum pour qu'un client puisse annuler
+          Minimum time for a client to cancel
         </p>
       </div>
 
@@ -657,10 +640,10 @@ function BookingSettingsForm({
 
       {/* Cancellation policy */}
       <div className="space-y-2">
-        <Label htmlFor="cancellationPolicy">Politique d'annulation</Label>
+        <Label htmlFor="cancellationPolicy">Cancellation Policy</Label>
         <Textarea
           id="cancellationPolicy"
-          placeholder="Décrivez votre politique d'annulation..."
+          placeholder="Describe your cancellation policy..."
           rows={3}
           {...register("cancellationPolicy")}
         />
@@ -668,14 +651,14 @@ function BookingSettingsForm({
 
       <Button type="submit" disabled={!isDirty} isLoading={isLoading}>
         <Save className="h-4 w-4 mr-2" />
-        Enregistrer
+        Save
       </Button>
     </form>
   );
 }
 
 // ==========================================
-// NOTIFICATIONS FORM - UTILISE NotificationPreferences
+// NOTIFICATIONS FORM - USES NotificationPreferences
 // ==========================================
 
 interface NotificationsFormProps {
@@ -685,7 +668,7 @@ interface NotificationsFormProps {
 }
 
 function NotificationsForm({ preferences, onSave, isLoading }: NotificationsFormProps) {
-  // ✅ Utiliser des valeurs par défaut si preferences est undefined
+  // Use default values if preferences is undefined
   const defaultPrefs: NotificationPreferences = {
     email: true,
     push: true,
@@ -693,7 +676,7 @@ function NotificationsForm({ preferences, onSave, isLoading }: NotificationsForm
   };
   
   const [localPrefs, setLocalPrefs] = useState<NotificationPreferences>(
-    preferences || defaultPrefs // ← Protection contre undefined
+    preferences || defaultPrefs // Protection against undefined
   );
 
   const handleChange = (key: keyof NotificationPreferences, value: boolean) => {
@@ -711,7 +694,7 @@ function NotificationsForm({ preferences, onSave, isLoading }: NotificationsForm
           <div className="space-y-0.5">
             <p className="font-medium">Email</p>
             <p className="text-sm text-muted-foreground">
-              Recevoir les notifications par email
+              Receive notifications by email
             </p>
           </div>
           <Switch
@@ -724,9 +707,9 @@ function NotificationsForm({ preferences, onSave, isLoading }: NotificationsForm
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <p className="font-medium">Notifications push</p>
+            <p className="font-medium">Push Notifications</p>
             <p className="text-sm text-muted-foreground">
-              Notifications sur votre appareil
+              Notifications on your device
             </p>
           </div>
           <Switch
@@ -741,7 +724,7 @@ function NotificationsForm({ preferences, onSave, isLoading }: NotificationsForm
           <div className="space-y-0.5">
             <p className="font-medium">SMS</p>
             <p className="text-sm text-muted-foreground">
-              Recevoir les notifications par SMS
+              Receive notifications by SMS
             </p>
           </div>
           <Switch
@@ -753,7 +736,7 @@ function NotificationsForm({ preferences, onSave, isLoading }: NotificationsForm
 
       <Button onClick={handleSubmit} isLoading={isLoading}>
         <Save className="h-4 w-4 mr-2" />
-        Enregistrer
+        Save
       </Button>
     </div>
   );
@@ -793,7 +776,7 @@ function PasswordForm({
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="currentPassword">Mot de passe actuel</Label>
+        <Label htmlFor="currentPassword">Current Password</Label>
         <div className="relative">
           <Input
             id="currentPassword"
@@ -824,7 +807,7 @@ function PasswordForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+        <Label htmlFor="newPassword">New Password</Label>
         <div className="relative">
           <Input
             id="newPassword"
@@ -853,7 +836,7 @@ function PasswordForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirmer</Label>
+        <Label htmlFor="confirmPassword">Confirm</Label>
         <div className="relative">
           <Input
             id="confirmPassword"
@@ -885,14 +868,14 @@ function PasswordForm({
 
       <Button type="submit" isLoading={isLoading}>
         <Lock className="h-4 w-4 mr-2" />
-        Changer le mot de passe
+        Change Password
       </Button>
     </form>
   );
 }
 
 // ==========================================
-// MAIN PAGE - ALIGNÉ BACKEND
+// MAIN PAGE - BACKEND ALIGNED
 // ==========================================
 
 export function PrestataireSettingsPage() {
@@ -904,7 +887,7 @@ export function PrestataireSettingsPage() {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
 
-  // ✅ Initialiser avec les valeurs du backend
+  // Initialize with backend values
   const [bookingSettings, setBookingSettings] = useState<BookingSettingsData>({
     minBookingNotice: prestataireProfile?.minBookingNotice || 0,
     pauseDuration: prestataireProfile?.pauseDuration || 0,
@@ -912,7 +895,7 @@ export function PrestataireSettingsPage() {
     cancellationPolicy: prestataireProfile?.cancellationPolicy || "",
   });
 
-  // ✅ Synchroniser quand le profil change
+  // Sync when profile changes
   useEffect(() => {
     if (prestataireProfile) {
       setBookingSettings({
@@ -933,9 +916,9 @@ export function PrestataireSettingsPage() {
     try {
       const updated = await authService.updatePrestataireProfile(data);
       updateProfile(updated);
-      showSuccess("Profil mis à jour");
+      showSuccess("Profile updated");
     } catch (error) {
-      showError("Impossible de mettre à jour le profil");
+      showError("Unable to update profile");
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -948,7 +931,7 @@ export function PrestataireSettingsPage() {
       });
       updateProfile(updated);
     } catch (error) {
-      throw error; // Relancer pour gérer dans le composant
+      throw error; // Re-throw to handle in component
     }
   };
 
@@ -966,7 +949,7 @@ export function PrestataireSettingsPage() {
   const handleBookingSubmit = async (data: BookingSettingsData) => {
     setIsUpdatingBooking(true);
     try {
-      // ✅ Envoyer au backend avec UpdatePrestataireDto
+      // Send to backend with UpdatePrestataireDto
       const updated = await authService.updatePrestataireProfile({
         minBookingNotice: data.minBookingNotice,
         pauseDuration: data.pauseDuration,
@@ -976,9 +959,9 @@ export function PrestataireSettingsPage() {
 
       updateProfile(updated);
       setBookingSettings(data);
-      showSuccess("Paramètres de réservation mis à jour");
+      showSuccess("Booking settings updated");
     } catch (error) {
-      showError("Impossible de sauvegarder");
+      showError("Unable to save");
     } finally {
       setIsUpdatingBooking(false);
     }
@@ -991,9 +974,9 @@ export function PrestataireSettingsPage() {
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
       });
-      showSuccess("Mot de passe modifié");
+      showSuccess("Password changed");
     } catch (error) {
-      showError("Impossible de modifier le mot de passe");
+      showError("Unable to change password");
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -1004,15 +987,15 @@ export function PrestataireSettingsPage() {
   ) => {
     setIsUpdatingNotifications(true);
     try {
-      // ✅ Envoyer avec UpdatePrestataireDto
+      // Send with UpdatePrestataireDto
       const updated = await authService.updatePrestataireProfile({
         notificationPreferences: preferences,
       });
 
       updateProfile(updated);
-      showSuccess("Préférences enregistrées");
+      showSuccess("Preferences saved");
     } catch (error) {
-      showError("Impossible de sauvegarder");
+      showError("Unable to save");
     } finally {
       setIsUpdatingNotifications(false);
     }
@@ -1026,7 +1009,7 @@ export function PrestataireSettingsPage() {
     );
   }
 
-   // ✅ Initialiser notificationPreferences avec valeurs par défaut si absent
+  // Initialize notificationPreferences with default values if absent
   const notificationPrefs: NotificationPreferences = prestataireProfile.notificationPreferences || {
     email: true,
     push: true,
@@ -1037,9 +1020,9 @@ export function PrestataireSettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Paramètres</h1>
+        <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Configurez votre compte et vos préférences
+          Configure your account and preferences
         </p>
       </div>
 
@@ -1080,11 +1063,11 @@ export function PrestataireSettingsPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4" />
-            Profil
+            Profile
           </TabsTrigger>
           <TabsTrigger value="booking" className="gap-2">
             <Calendar className="h-4 w-4" />
-            Réservation
+            Booking
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="h-4 w-4" />
@@ -1092,16 +1075,16 @@ export function PrestataireSettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2">
             <Lock className="h-4 w-4" />
-            Sécurité
+            Security
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Informations publiques</CardTitle>
+              <CardTitle>Public Information</CardTitle>
               <CardDescription>
-                Ces informations sont visibles par vos clients
+                This information is visible to your clients
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1119,9 +1102,9 @@ export function PrestataireSettingsPage() {
         <TabsContent value="booking" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Paramètres de réservation</CardTitle>
+              <CardTitle>Booking Settings</CardTitle>
               <CardDescription>
-                Configurez comment les clients peuvent réserver
+                Configure how clients can book with you
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1137,9 +1120,9 @@ export function PrestataireSettingsPage() {
         <TabsContent value="notifications" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Préférences de notifications</CardTitle>
+              <CardTitle>Notification Preferences</CardTitle>
               <CardDescription>
-                Choisissez comment recevoir les notifications
+                Choose how to receive notifications
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1155,9 +1138,9 @@ export function PrestataireSettingsPage() {
         <TabsContent value="security" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Mot de passe</CardTitle>
+              <CardTitle>Password</CardTitle>
               <CardDescription>
-                Modifiez votre mot de passe de connexion
+                Change your login password
               </CardDescription>
             </CardHeader>
             <CardContent>

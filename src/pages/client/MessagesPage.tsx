@@ -1,12 +1,12 @@
 /**
- * Page Messages (Client)
- * CORRIGÉ - Validation des dates + useEffect
+ * Messages Page (Client)
+ * CORRECTED - Date validation + useEffect
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format, isToday, isYesterday, isValid, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import {
   Send,
   Search,
@@ -49,28 +49,28 @@ interface Conversation {
 }
 
 // ==========================================
-// HELPERS - avec validation de date
+// HELPERS - with date validation
 // ==========================================
 
 /**
- * Parse une date de manière sécurisée
+ * Safely parse a date
  */
 function safeParseDate(dateValue: string | Date | null | undefined): Date | null {
   if (!dateValue) return null;
 
   try {
-    // Si c'est déjà un objet Date valide
+    // If it's already a valid Date object
     if (dateValue instanceof Date) {
       return isValid(dateValue) ? dateValue : null;
     }
 
-    // Si c'est une chaîne
+    // If it's a string
     if (typeof dateValue === "string") {
-      // Essayer parseISO d'abord (format ISO 8601)
+      // Try parseISO first (ISO 8601 format)
       const parsed = parseISO(dateValue);
       if (isValid(parsed)) return parsed;
 
-      // Essayer new Date en fallback
+      // Try new Date as fallback
       const fallback = new Date(dateValue);
       if (isValid(fallback)) return fallback;
     }
@@ -90,9 +90,9 @@ function formatMessageDate(dateValue: string | Date | null | undefined): string 
       return format(date, "HH:mm");
     }
     if (isYesterday(date)) {
-      return "Hier";
+      return "Yesterday";
     }
-    return format(date, "dd/MM/yy");
+    return format(date, "MM/dd/yy");
   } catch {
     return "";
   }
@@ -115,12 +115,12 @@ function formatDateSeparator(dateValue: string | Date | null | undefined): strin
 
   try {
     if (isToday(date)) {
-      return "Aujourd'hui";
+      return "Today";
     }
     if (isYesterday(date)) {
-      return "Hier";
+      return "Yesterday";
     }
-    return format(date, "d MMMM yyyy", { locale: fr });
+    return format(date, "MMMM d, yyyy", { locale: enUS });
   } catch {
     return "";
   }
@@ -138,7 +138,7 @@ function getDateKey(dateValue: string | Date | null | undefined): string {
 }
 
 /**
- * Normalise une date en string ISO
+ * Normalize a date to ISO string
  */
 function normalizeDateToISO(dateValue: string | Date | null | undefined): string {
   if (!dateValue) return new Date().toISOString();
@@ -190,7 +190,7 @@ function ConversationList({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-10"
@@ -206,7 +206,7 @@ function ConversationList({
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
-            {searchQuery ? "Aucun résultat" : "Aucune conversation"}
+            {searchQuery ? "No results" : "No conversations"}
           </div>
         ) : (
           filtered.map((conv, index) => {
@@ -240,7 +240,7 @@ function ConversationList({
                         conv.unreadCount > 0 && "font-semibold"
                       )}
                     >
-                      {name || "Prestataire"}
+                      {name || "Provider"}
                     </p>
                     {conv.lastMessage?.createdAt && (
                       <span className="text-xs text-muted-foreground">
@@ -318,7 +318,7 @@ function MessageThread({
     prestataire?.businessName ||
     `${prestataire?.firstName || ""} ${prestataire?.lastName || ""}`;
 
-  // Group messages by date - avec validation
+  // Group messages by date - with validation
   const groupedMessages: { date: string; label: string; messages: Message[] }[] = [];
   messages.forEach((msg) => {
     const dateKey = getDateKey(msg.createdAt);
@@ -415,7 +415,7 @@ function MessageThread({
       <form onSubmit={handleSubmit} className="p-4 border-t">
         <div className="flex gap-2">
           <Input
-            placeholder="Écrivez votre message..."
+            placeholder="Write your message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             disabled={isSending}
@@ -453,7 +453,7 @@ export function ClientMessagesPage() {
   // WebSocket handlers
   const handleNewMessage = useCallback(
     (socketMessage: SocketMessage) => {
-      // Normaliser la date
+      // Normalize date
       const normalizedCreatedAt = normalizeDateToISO(socketMessage.createdAt);
 
       if (socketMessage.appointmentId === selectedId) {
@@ -545,7 +545,7 @@ export function ClientMessagesPage() {
     }
   }, []);
 
-  // useEffect pour charger les conversations
+  // useEffect to load conversations
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
@@ -582,7 +582,7 @@ export function ClientMessagesPage() {
     loadMessages();
   }, [selectedId]);
 
-  // Send message - avec normalisation de la date
+  // Send message - with date normalization
   const handleSend = async (content: string) => {
     if (!selectedId) return;
 
@@ -593,7 +593,7 @@ export function ClientMessagesPage() {
         content,
       });
 
-      // Normaliser createdAt en string ISO
+      // Normalize createdAt to ISO string
       const normalizedMessage: Message = {
         ...newMessage,
         createdAt: normalizeDateToISO(newMessage.createdAt),
@@ -642,7 +642,7 @@ export function ClientMessagesPage() {
           <RefreshCw
             className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")}
           />
-          Actualiser
+          Refresh
         </Button>
       </div>
 
@@ -687,8 +687,8 @@ export function ClientMessagesPage() {
                 <div className="flex items-center justify-center h-full">
                   <EmptyState
                     icon={<MessageSquare className="h-12 w-12" />}
-                    title="Sélectionnez une conversation"
-                    description="Choisissez une conversation pour voir les messages"
+                    title="Select a conversation"
+                    description="Choose a conversation to view messages"
                   />
                 </div>
               )}

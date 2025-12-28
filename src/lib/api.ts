@@ -1,11 +1,11 @@
 /**
- * Client API Axios avec gestion automatique des tokens JWT
+ * Axios API Client with Automatic JWT Token Management
  *
- * Ce module configure axios avec :
- * - Injection automatique du token d'accès dans les headers
- * - Rafraîchissement automatique du token si expiré (401)
- * - Gestion des erreurs centralisée
- * - Retry automatique après refresh du token
+ * This module configures axios with:
+ * - Automatic access token injection in headers
+ * - Automatic token refresh on expiry (401)
+ * - Centralized error handling
+ * - Automatic retry after token refresh
  */
 
 import axios, { AxiosError } from "axios";
@@ -13,57 +13,56 @@ import type { InternalAxiosRequestConfig } from "axios";
 import qs from 'qs';
 
 // ==========================================
-// CONFIGURATION DE BASE
+// BASE CONFIGURATION
 // ==========================================
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 /**
- * Instance axios configurée pour l'API BookMe
+ * Axios instance configured for BookMe API
  */
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 30000, // 30 secondes
+  timeout: 30000, // 30 seconds
   paramsSerializer: (params) => {
     return qs.stringify(params, { arrayFormat: 'repeat' });
   },
 });
 
 // ==========================================
-// GESTION DES TOKENS
+// TOKEN MANAGEMENT
 // ==========================================
 
 const TOKEN_KEY = "bookme_access_token";
 const REFRESH_TOKEN_KEY = "bookme_refresh_token";
 
 /**
- * Récupère le token d'accès depuis le localStorage
+ * Gets access token from localStorage
  */
 export const getAccessToken = (): string | null => {
   return localStorage.getItem(TOKEN_KEY);
 };
 
 /**
- * Récupère le refresh token depuis le localStorage
+ * Gets refresh token from localStorage
  */
 export const getRefreshToken = (): string | null => {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 };
 
 /**
- * Sauvegarde les tokens dans le localStorage
+ * Saves tokens to localStorage
  */
 export const setTokens = (accessToken: string, refreshToken: string): void => {
-  console.log(`accessToken :${accessToken} and refreshToken: ${refreshToken}`);
   localStorage.setItem(TOKEN_KEY, accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 };
 
 /**
- * Supprime les tokens (logout)
+ * Removes tokens (logout)
  */
 export const clearTokens = (): void => {
   localStorage.removeItem(TOKEN_KEY);
@@ -71,22 +70,22 @@ export const clearTokens = (): void => {
 };
 
 /**
- * Vérifie si l'utilisateur est connecté (a un token)
+ * Checks if user is authenticated (has a token)
  */
 export const isAuthenticated = (): boolean => {
   return !!getAccessToken();
 };
 
 // ==========================================
-// INTERCEPTEUR DE REQUÊTE
-// Ajoute automatiquement le token aux headers
+// REQUEST INTERCEPTOR
+// Automatically adds token to headers
 // ==========================================
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
 
-    // Ajoute le token d'authentification si disponible
+    // Add authentication token if available
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -99,18 +98,18 @@ api.interceptors.request.use(
 );
 
 // ==========================================
-// INTERCEPTEUR DE RÉPONSE
-// Gère le refresh automatique du token et les erreurs
+// RESPONSE INTERCEPTOR
+// Handles automatic token refresh and errors
 // ==========================================
 
 /**
- * Variable pour éviter les appels multiples au refresh endpoint
- * pendant qu'un refresh est en cours
+ * Variable to prevent multiple refresh calls
+ * while a refresh is in progress
  */
 let isRefreshing = false;
 
 /**
- * File d'attente des requêtes en attente pendant le refresh
+ * Queue of requests waiting during refresh
  */
 let failedQueue: Array<{
   resolve: (token: string) => void;
@@ -118,7 +117,7 @@ let failedQueue: Array<{
 }> = [];
 
 /**
- * Traite la file d'attente après un refresh réussi ou échoué
+ * Processes queue after successful or failed refresh
  */
 const processQueue = (
   error: Error | null,
@@ -135,27 +134,28 @@ const processQueue = (
 };
 
 api.interceptors.response.use(
-  // Cas succès : retourner la réponse telle quelle
+  // Success case: return response as is
   (response) => response,
 
-  // Cas erreur : gérer le refresh du token si 401
+  // Error case: handle token refresh on 401
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
 
-    // Vérifie si c'est une erreur 401 (non autorisé) et que ce n'est pas déjà un retry
+    // Check if it's a 401 error and not already a retry
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const token = getRefreshToken();
+      const refreshToken = getRefreshToken();
 
-      // Si le token est null, "undefined" (string) ou vide, on ne tente même pas le refresh
-      if (!token || token === "undefined") {
-        console.warn("Pas de refresh token valide trouvé. Redirection login.");
+      // If no valid refresh token, don't attempt refresh
+      if (!refreshToken || refreshToken === "undefined") {
+        console.warn("No valid refresh token found. Redirecting to login.");
         clearTokens();
         if (typeof window !== "undefined") window.location.href = "/login";
         return Promise.reject(error);
       }
-      // Si c'est la route de login ou refresh, ne pas tenter de refresh
+
+      // Don't attempt refresh for login or refresh routes
       if (
         originalRequest.url?.includes("/auth/login") ||
         originalRequest.url?.includes("/auth/refresh")
@@ -163,7 +163,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      // Si un refresh est déjà en cours, mettre la requête en file d'attente
+      // If refresh is already in progress, queue the request
       if (isRefreshing) {
         return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -177,108 +177,177 @@ api.interceptors.response.use(
           .catch((err) => Promise.reject(err));
       }
 
-      // Marquer comme retry pour éviter les boucles infinies
+      // Mark as retry to avoid infinite loops
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = getRefreshToken();
-
-      if (!refreshToken) {
-        // Pas de refresh token, déconnecter l'utilisateur
-        clearTokens();
-        window.location.href = "/login";
-        return Promise.reject(error);
-      }
-
       try {
-        // Tenter de rafraîchir le token
+        // Attempt to refresh the token
         const response = await axios.post(`${API_URL}/auth/refresh`, {
           refreshToken,
         });
 
         const { accessToken, refreshToken: newRefreshToken } = response.data;
 
-        // Sauvegarder les nouveaux tokens
+        // Save new tokens
         setTokens(accessToken, newRefreshToken);
 
-        // Traiter la file d'attente avec le nouveau token
+        // Process queue with new token
         processQueue(null, accessToken);
 
-        // Relancer la requête originale avec le nouveau token
+        // Retry original request with new token
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         }
 
         return api(originalRequest);
       } catch (refreshError) {
-        // Échec du refresh, déconnecter l'utilisateur
+        // Refresh failed, log out user
         processQueue(refreshError as Error, null);
         clearTokens();
-        window.location.href = "/login";
+        
+        // Only redirect if we're in a browser environment
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
     }
 
-    // Pour les autres erreurs, les propager
+    // For other errors, propagate them
     return Promise.reject(error);
   }
 );
 
 // ==========================================
-// HELPERS POUR LES ERREURS API
+// API ERROR HELPERS
 // ==========================================
 
 /**
- * Extrait le message d'erreur d'une réponse API
+ * Extracts error message from API response
  */
 export const getErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
-    // Erreur avec réponse du serveur
+    // Error with server response
     if (error.response?.data?.message) {
       const message = error.response.data.message;
       return Array.isArray(message) ? message[0] : message;
     }
-    // Erreur réseau
+    
+    // Network error
     if (error.code === "ECONNABORTED") {
-      return "La requête a expiré. Veuillez réessayer.";
+      return "Request timed out. Please try again.";
     }
+    
+    if (error.code === "ERR_NETWORK") {
+      return "Network error. Please check your connection.";
+    }
+    
     if (!error.response) {
-      return "Impossible de contacter le serveur. Vérifiez votre connexion.";
+      return "Unable to reach the server. Please check your connection.";
+    }
+    
+    // HTTP status errors
+    switch (error.response.status) {
+      case 400:
+        return "Invalid request. Please check your input.";
+      case 401:
+        return "Authentication required. Please sign in.";
+      case 403:
+        return "Access denied. You don't have permission.";
+      case 404:
+        return "Resource not found.";
+      case 409:
+        return "Conflict. This resource already exists.";
+      case 422:
+        return "Validation error. Please check your input.";
+      case 429:
+        return "Too many requests. Please try again later.";
+      case 500:
+        return "Server error. Please try again later.";
+      case 502:
+      case 503:
+        return "Service temporarily unavailable. Please try again.";
+      default:
+        return "An unexpected error occurred.";
     }
   }
 
-  // Erreur générique
-  return "Une erreur inattendue est survenue.";
+  // Generic error
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "An unexpected error occurred.";
 };
 
 /**
- * Vérifie si une erreur est une erreur de validation (400)
+ * Checks if error is a validation error (400/422)
  */
 export const isValidationError = (error: unknown): boolean => {
-  return axios.isAxiosError(error) && error.response?.status === 400;
+  return axios.isAxiosError(error) && 
+    (error.response?.status === 400 || error.response?.status === 422);
 };
 
 /**
- * Vérifie si une erreur est une erreur d'authentification (401)
+ * Checks if error is an authentication error (401)
  */
 export const isAuthError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && error.response?.status === 401;
 };
 
 /**
- * Vérifie si une erreur est une erreur de permission (403)
+ * Checks if error is a permission error (403)
  */
 export const isForbiddenError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && error.response?.status === 403;
 };
 
 /**
- * Vérifie si une erreur est une erreur "non trouvé" (404)
+ * Checks if error is a "not found" error (404)
  */
 export const isNotFoundError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && error.response?.status === 404;
+};
+
+/**
+ * Checks if error is a conflict error (409)
+ */
+export const isConflictError = (error: unknown): boolean => {
+  return axios.isAxiosError(error) && error.response?.status === 409;
+};
+
+/**
+ * Checks if error is a network error
+ */
+export const isNetworkError = (error: unknown): boolean => {
+  if (!axios.isAxiosError(error)) return false;
+  return error.code === "ERR_NETWORK" || !error.response;
+};
+
+/**
+ * Extracts validation errors by field from API response
+ */
+export const getValidationErrors = (error: unknown): Record<string, string> | null => {
+  if (!axios.isAxiosError(error)) return null;
+  
+  const errors = error.response?.data?.errors;
+  if (!errors || typeof errors !== 'object') return null;
+  
+  const fieldErrors: Record<string, string> = {};
+  
+  for (const [field, messages] of Object.entries(errors)) {
+    if (Array.isArray(messages) && messages.length > 0) {
+      fieldErrors[field] = messages[0];
+    } else if (typeof messages === 'string') {
+      fieldErrors[field] = messages;
+    }
+  }
+  
+  return Object.keys(fieldErrors).length > 0 ? fieldErrors : null;
 };
 
 export default api;

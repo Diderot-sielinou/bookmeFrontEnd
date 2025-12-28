@@ -47,7 +47,7 @@ export function usePrestataireServices(prestataireId: string | undefined) {
 // ==========================================
 
 /**
- * Crée un service
+ * Creates a service
  */
 export function useCreateService() {
   const queryClient = useQueryClient();
@@ -56,7 +56,7 @@ export function useCreateService() {
     mutationFn: (data: CreateServiceDto) => servicesService.createService(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
-      showSuccess("Service créé avec succès");
+      showSuccess("Service created successfully");
     },
     onError: (error) => {
       showError(getErrorMessage(error));
@@ -65,7 +65,7 @@ export function useCreateService() {
 }
 
 /**
- * Met à jour un service
+ * Updates a service
  */
 export function useUpdateService() {
   const queryClient = useQueryClient();
@@ -75,7 +75,7 @@ export function useUpdateService() {
       servicesService.updateService(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
-      showSuccess("Service mis à jour");
+      showSuccess("Service updated");
     },
     onError: (error) => {
       showError(getErrorMessage(error));
@@ -84,7 +84,7 @@ export function useUpdateService() {
 }
 
 /**
- * Supprime un service
+ * Deletes a service
  */
 export function useDeleteService() {
   const queryClient = useQueryClient();
@@ -93,7 +93,7 @@ export function useDeleteService() {
     mutationFn: (id: string) => servicesService.deleteService(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
-      showSuccess("Service supprimé");
+      showSuccess("Service deleted");
     },
     onError: (error) => {
       showError(getErrorMessage(error));
@@ -102,7 +102,7 @@ export function useDeleteService() {
 }
 
 /**
- * Réordonne les services
+ * Reorders services
  */
 export function useReorderServices() {
   const queryClient = useQueryClient();
@@ -112,7 +112,7 @@ export function useReorderServices() {
       servicesService.reorderServices(serviceIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
-      showSuccess("Ordre mis à jour");
+      showSuccess("Order updated"); // ✅ Translated
     },
     onError: (error) => {
       showError(getErrorMessage(error));

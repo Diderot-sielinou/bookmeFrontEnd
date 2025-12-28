@@ -1,23 +1,24 @@
 /**
- * Page Profil Prestataire Public
+ * PrestataireProfilePage Component
  * 
- * Affiche le profil public d'un prestataire avec :
- * - Informations et bio
- * - Services proposés
- * - Avis clients
- * - Bouton de réservation
+ * Public profile page for service providers.
+ * Features:
+ * - Provider information and bio
+ * - Services list with booking
+ * - Reviews display
+ * - Contact information
+ * - Rating summary
+ * - Loading/error states
  */
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import {
   MapPin,
   Phone,
   Globe,
   Clock,
-  Euro,
   Star,
   Calendar,
   ChevronRight,
@@ -25,6 +26,7 @@ import {
   Heart,
   CheckCircle,
   Award,
+  Loader2,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -46,9 +48,8 @@ import {
   TabsTrigger,
   Separator,
 } from '@/components/ui';
-import { Spinner } from '@/components/ui/spinner';
 import { EmptyState, ErrorState } from '@/components/shared';
-import { RatingStars, RatingBadge } from '@/components/shared/RatingStars';
+import { RatingStars } from '@/components/shared/RatingStars';
 
 // ==========================================
 // SERVICE CARD
@@ -68,7 +69,7 @@ function ServiceCard({ service, onSelect }: ServiceCardProps) {
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold">{service.name}</h3>
+            <h3 className="font-semibold text-lg">{service.name}</h3>
             {service.description && (
               <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                 {service.description}
@@ -86,7 +87,7 @@ function ServiceCard({ service, onSelect }: ServiceCardProps) {
               {formatPrice(service.price)}
             </p>
             <Button size="sm" className="mt-2">
-              Réserver
+              Book
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -123,7 +124,7 @@ function ReviewCard({ review }: ReviewCardProps) {
                 {client?.firstName} {client?.lastName?.charAt(0)}.
               </p>
               <span className="text-sm text-muted-foreground">
-                {format(new Date(review.createdAt), 'd MMM yyyy', { locale: fr })}
+                {format(new Date(review.createdAt), 'MMM d, yyyy')}
               </span>
             </div>
             <RatingStars value={review.rating} size="sm" className="mt-1" />
@@ -131,7 +132,7 @@ function ReviewCard({ review }: ReviewCardProps) {
             
             {review.prestataireResponse && (
               <div className="mt-3 p-3 bg-muted rounded-lg">
-                <p className="text-xs font-medium mb-1">Réponse :</p>
+                <p className="text-xs font-medium mb-1">Response:</p>
                 <p className="text-sm text-muted-foreground">
                   {review.prestataireResponse}
                 </p>
@@ -145,14 +146,14 @@ function ReviewCard({ review }: ReviewCardProps) {
 }
 
 // ==========================================
-// MAIN PAGE
+// MAIN COMPONENT
 // ==========================================
 
 export function PrestataireProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Queries
+  // Fetch data
   const { data: prestataire, isLoading, error } = usePrestataire(id!);
   const { data: servicesData } = usePrestataireServices(id!);
   const { data: reviewsResponse } = usePrestataireReviews(id!);
@@ -160,24 +161,29 @@ export function PrestataireProfilePage() {
   const services: Service[] = servicesData || [];
   const reviews = reviewsResponse?.data || [];
 
-  // Handle service selection -> go to booking page
+  // Handle service selection
   const handleServiceSelect = (service: Service) => {
     navigate(`/book/${id}?serviceId=${service.id}`);
   };
 
+  // Loading state
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Spinner size="lg" />
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
+  // Error state
   if (error || !prestataire) {
     return (
       <div className="container py-12">
         <ErrorState
-          message="Impossible de charger ce profil"
+          message="Unable to load this profile"
           onRetry={() => window.location.reload()}
         />
       </div>
@@ -185,8 +191,8 @@ export function PrestataireProfilePage() {
   }
 
   const name = prestataire.businessName;
-const avgRating = Number(prestataire.averageRating) || 0;
-  const reviewCount = prestataire.reviewCount || reviews.length;
+  const avgRating = Number(prestataire.averageRating) || 0;
+  const reviewCount = prestataire.totalReviews || reviews.length;
 
   return (
     <div className="container px-4 py-8">
@@ -205,7 +211,7 @@ const avgRating = Number(prestataire.averageRating) || 0;
                   className="shrink-0"
                 />
                 
-                <div className="flex-1">
+                <div className="flex-1 w-full">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h1 className="text-2xl font-bold">{name}</h1>
@@ -214,10 +220,10 @@ const avgRating = Number(prestataire.averageRating) || 0;
                       </p>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="icon">
+                      <Button variant="outline" size="icon" aria-label="Share profile">
                         <Share2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="icon">
+                      <Button variant="outline" size="icon" aria-label="Save to favorites">
                         <Heart className="h-4 w-4" />
                       </Button>
                     </div>
@@ -227,12 +233,12 @@ const avgRating = Number(prestataire.averageRating) || 0;
                   <div className="flex items-center gap-3 mt-3">
                     <RatingStars value={avgRating} showValue />
                     <span className="text-sm text-muted-foreground">
-                      ({reviewCount} avis)
+                      ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
                     </span>
                     {prestataire.isVerified && (
                       <Badge variant="default" className="bg-green-500 gap-1">
                         <CheckCircle className="h-3 w-3" />
-                        Vérifié
+                        Verified
                       </Badge>
                     )}
                   </div>
@@ -267,7 +273,7 @@ const avgRating = Number(prestataire.averageRating) || 0;
                 <>
                   <Separator className="my-6" />
                   <div>
-                    <h3 className="font-semibold mb-2">À propos</h3>
+                    <h3 className="font-semibold mb-2">About</h3>
                     <p className="text-muted-foreground whitespace-pre-wrap">
                       {prestataire.bio}
                     </p>
@@ -284,7 +290,7 @@ const avgRating = Number(prestataire.averageRating) || 0;
                 Services ({services.length})
               </TabsTrigger>
               <TabsTrigger value="reviews">
-                Avis ({reviewCount})
+                Reviews ({reviewCount})
               </TabsTrigger>
             </TabsList>
 
@@ -292,8 +298,8 @@ const avgRating = Number(prestataire.averageRating) || 0;
               {services.length === 0 ? (
                 <EmptyState
                   icon={Calendar}
-                  title="Aucun service"
-                  description="Ce prestataire n'a pas encore ajouté de services"
+                  title="No Services"
+                  description="This provider hasn't added any services yet"
                 />
               ) : (
                 services
@@ -312,8 +318,8 @@ const avgRating = Number(prestataire.averageRating) || 0;
               {reviews.length === 0 ? (
                 <EmptyState
                   icon={Star}
-                  title="Aucun avis"
-                  description="Ce prestataire n'a pas encore reçu d'avis"
+                  title="No Reviews Yet"
+                  description="This provider hasn't received any reviews"
                 />
               ) : (
                 reviews.map((review) => (
@@ -329,13 +335,13 @@ const avgRating = Number(prestataire.averageRating) || 0;
           {/* Quick booking CTA */}
           <Card className="sticky top-24">
             <CardHeader>
-              <CardTitle>Réserver un rendez-vous</CardTitle>
+              <CardTitle>Book Appointment</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {services.length > 0 ? (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    À partir de{' '}
+                    Starting from{' '}
                     <span className="font-semibold text-foreground">
                       {formatPrice(Math.min(...services.map((s) => s.price)))}
                     </span>
@@ -346,12 +352,12 @@ const avgRating = Number(prestataire.averageRating) || 0;
                     onClick={() => navigate(`/book/${id}`)}
                   >
                     <Calendar className="h-5 w-5 mr-2" />
-                    Choisir un créneau
+                    Choose Time Slot
                   </Button>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Aucun service disponible pour le moment
+                  No services available at the moment
                 </p>
               )}
             </CardContent>
@@ -380,9 +386,9 @@ const avgRating = Number(prestataire.averageRating) || 0;
               {prestataire.phone && (
                 <div className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-muted-foreground" />
-                  <a
-                    href={`tel:${prestataire.phone}`}
-                    className="text-sm hover:text-cyan-600"
+                  
+                  <a  href={`tel:${prestataire.phone}`}
+                    className="text-sm hover:text-cyan-600 transition-colors"
                   >
                     {prestataire.phone}
                   </a>
@@ -392,8 +398,8 @@ const avgRating = Number(prestataire.averageRating) || 0;
               {prestataire.website && (
                 <div className="flex items-center gap-3">
                   <Globe className="h-5 w-5 text-muted-foreground" />
-                  <a
-                    href={prestataire.website}
+                  
+                 <a   href={prestataire.website}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-cyan-600 hover:underline truncate"
@@ -409,7 +415,7 @@ const avgRating = Number(prestataire.averageRating) || 0;
           {reviewCount > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Note globale</CardTitle>
+                <CardTitle>Overall Rating</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4">
@@ -417,10 +423,10 @@ const avgRating = Number(prestataire.averageRating) || 0;
                     <p className="text-4xl font-bold text-cyan-600">
                       {avgRating.toFixed(1)}
                     </p>
-                    <RatingStars value={avgRating} size="sm" />
+                    <RatingStars value={avgRating} size="sm" className="mt-1" />
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Basé sur {reviewCount} avis
+                    Based on {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
                   </div>
                 </div>
               </CardContent>

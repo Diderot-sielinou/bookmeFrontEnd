@@ -1,10 +1,10 @@
 /**
- * Page Mes Services (Prestataire) - AVEC UPLOAD IMAGE
+ * My Services Page (Provider) - WITH IMAGE UPLOAD
  *
- * Gestion des services proposés par le prestataire :
- * - Liste des services avec prix et durée
- * - Création/Modification/Suppression
- * - Upload d'image de service
+ * Management of services offered by the provider:
+ * - List of services with price and duration
+ * - Create/Edit/Delete
+ * - Service image upload
  */
 
 import { useState, useEffect } from "react";
@@ -64,15 +64,15 @@ import {
 const serviceSchema = z.object({
   name: z
     .string()
-    .min(2, "Minimum 2 caractères")
-    .max(100, "Maximum 100 caractères"),
-  description: z.string().max(500, "Maximum 500 caractères").optional(),
+    .min(2, "Minimum 2 characters")
+    .max(100, "Maximum 100 characters"),
+  description: z.string().max(500, "Maximum 500 characters").optional(),
   duration: z
     .number()
     .min(15, "Minimum 15 minutes")
-    .max(480, "Maximum 8 heures"),
-  price: z.number().min(0, "Le prix doit être positif"),
-  image: z.string().url("URL invalide").optional().or(z.literal("")),
+    .max(480, "Maximum 8 hours"),
+  price: z.number().min(0, "Price must be positive"),
+  image: z.string().url("Invalid URL").optional().or(z.literal("")),
   isActive: z.boolean(),
 });
 
@@ -115,7 +115,7 @@ function ServiceImageUpload({
       return;
     }
 
-    // Preview local
+    // Local preview
     const localUrl = URL.createObjectURL(file);
     setPreviewUrl(localUrl);
 
@@ -124,10 +124,10 @@ function ServiceImageUpload({
       const result = await uploadServiceImage(file);
       onImageChange(result.secureUrl);
       setPreviewUrl(result.secureUrl);
-      showSuccess("Image ajoutée !");
+      showSuccess("Image added!");
       URL.revokeObjectURL(localUrl);
     } catch (error) {
-      showError("Impossible d'uploader l'image");
+      showError("Unable to upload image");
       setPreviewUrl(currentImage);
       URL.revokeObjectURL(localUrl);
     } finally {
@@ -168,7 +168,7 @@ function ServiceImageUpload({
             <>
               <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
               <span className="text-sm text-gray-500">
-                Ajouter une image (optionnel)
+                Add image (optional)
               </span>
             </>
           )}
@@ -185,7 +185,7 @@ function ServiceImageUpload({
       />
 
       <p className="text-xs text-muted-foreground">
-        Format : JPEG, PNG, GIF ou WebP • Max 5 Mo
+        Format: JPEG, PNG, GIF or WebP • Max 5 MB
       </p>
     </div>
   );
@@ -229,7 +229,7 @@ function ServiceCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold truncate">{service.name}</h3>
-              {!service.isActive && <Badge variant="secondary">Inactif</Badge>}
+              {!service.isActive && <Badge variant="secondary">Inactive</Badge>}
             </div>
 
             {service.description && (
@@ -349,19 +349,19 @@ function ServiceDialog({
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Modifier le service" : "Nouveau service"}
+            {isEditing ? "Edit Service" : "New Service"}
           </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Modifiez les informations de ce service"
-              : "Créez un nouveau service pour vos clients"}
+              ? "Modify this service information"
+              : "Create a new service for your clients"}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Image Upload */}
           <div className="space-y-2">
-            <Label>Image du service</Label>
+            <Label>Service Image</Label>
             <ServiceImageUpload
               currentImage={currentImage || null}
               onImageChange={(url) => setValue("image", url)}
@@ -371,10 +371,10 @@ function ServiceDialog({
 
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="name">Nom du service *</Label>
+            <Label htmlFor="name">Service Name *</Label>
             <Input
               id="name"
-              placeholder="Ex: Coupe homme"
+              placeholder="E.g., Men's Haircut"
               {...register("name")}
               error={!!errors.name}
             />
@@ -388,7 +388,7 @@ function ServiceDialog({
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              placeholder="Décrivez ce service..."
+              placeholder="Describe this service..."
               rows={3}
               {...register("description")}
             />
@@ -401,7 +401,7 @@ function ServiceDialog({
 
           {/* Duration */}
           <div className="space-y-2">
-            <Label>Durée *</Label>
+            <Label>Duration *</Label>
             <div className="flex flex-wrap gap-2">
               {durationPresets.map((preset) => (
                 <Button
@@ -435,7 +435,7 @@ function ServiceDialog({
 
           {/* Price */}
           <div className="space-y-2">
-            <Label htmlFor="price">Prix *</Label>
+            <Label htmlFor="price">Price *</Label>
             <div className="relative">
               <Input
                 id="price"
@@ -456,9 +456,9 @@ function ServiceDialog({
           {/* Active toggle */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Service actif</Label>
+              <Label>Active Service</Label>
               <p className="text-sm text-muted-foreground">
-                Visible et réservable par les clients
+                Visible and bookable by clients
               </p>
             </div>
             <Switch
@@ -473,11 +473,11 @@ function ServiceDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Annuler
+              Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isEditing ? "Enregistrer" : "Créer le service"}
+              {isEditing ? "Save" : "Create Service"}
             </Button>
           </DialogFooter>
         </form>
@@ -503,7 +503,7 @@ export function PrestataireServicesPage() {
   }>({ open: false, service: null });
 
   // ==========================================
-  // HOOKS - Connexion au backend via React Query
+  // HOOKS - Backend connection via React Query
   // ==========================================
 
   const { data: services = [], isLoading } = useMyServices();
@@ -539,16 +539,16 @@ export function PrestataireServicesPage() {
         data: { isActive: !service.isActive },
       });
     } catch (error) {
-      // Erreur gérée dans le hook
+      // Error handled in hook
     }
   };
 
   const handleSubmit = async (data: ServiceFormData) => {
     try {
-      // ✅ Nettoyer les données avant envoi
+      // ✅ Clean data before sending
       const cleanData = {
         ...data,
-        image: data.image || undefined, // Convertir "" en undefined
+        image: data.image || undefined, // Convert "" to undefined
       };
 
       if (dialogState.service) {
@@ -558,13 +558,13 @@ export function PrestataireServicesPage() {
           data: cleanData,
         });
       } else {
-        // Create - retirer isActive si true (valeur par défaut backend)
+        // Create - remove isActive if true (backend default value)
         const { isActive, ...createData } = cleanData;
         await createService(isActive === false ? cleanData : createData);
       }
       setDialogState({ open: false, service: null });
     } catch (error) {
-      // Erreur gérée dans le hook
+      // Error handled in hook
     }
   };
 
@@ -575,7 +575,7 @@ export function PrestataireServicesPage() {
       await deleteService(deleteDialog.service.id);
       setDeleteDialog({ open: false, service: null });
     } catch (error) {
-      // Erreur gérée dans le hook
+      // Error handled in hook
     }
   };
 
@@ -602,14 +602,14 @@ export function PrestataireServicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Mes services</h1>
+          <h1 className="text-3xl font-bold">My Services</h1>
           <p className="text-muted-foreground mt-1">
-            Gérez les services que vous proposez
+            Manage the services you offer
           </p>
         </div>
         <Button onClick={handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Nouveau service
+          New Service
         </Button>
       </div>
 
@@ -622,7 +622,7 @@ export function PrestataireServicesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{services.length}</p>
-              <p className="text-sm text-muted-foreground">Services total</p>
+              <p className="text-sm text-muted-foreground">Total Services</p>
             </div>
           </CardContent>
         </Card>
@@ -633,7 +633,7 @@ export function PrestataireServicesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{activeCount}</p>
-              <p className="text-sm text-muted-foreground">Services actifs</p>
+              <p className="text-sm text-muted-foreground">Active Services</p>
             </div>
           </CardContent>
         </Card>
@@ -644,7 +644,7 @@ export function PrestataireServicesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{formatPrice(avgPrice)}</p>
-              <p className="text-sm text-muted-foreground">Prix moyen</p>
+              <p className="text-sm text-muted-foreground">Average Price</p>
             </div>
           </CardContent>
         </Card>
@@ -654,12 +654,12 @@ export function PrestataireServicesPage() {
       {services.length === 0 ? (
         <EmptyState
           icon={Briefcase}
-          title="Aucun service"
-          description="Créez votre premier service pour que les clients puissent réserver"
+          title="No Services"
+          description="Create your first service so clients can book with you"
           action={
             <Button onClick={handleCreate}>
               <Plus className="h-4 w-4 mr-2" />
-              Créer un service
+              Create Service
             </Button>
           }
         />
@@ -694,10 +694,10 @@ export function PrestataireServicesPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer le service</DialogTitle>
+            <DialogTitle>Delete Service</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer "{deleteDialog.service?.name}"
-              ? Cette action est irréversible.
+              Are you sure you want to delete "{deleteDialog.service?.name}"?
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -705,7 +705,7 @@ export function PrestataireServicesPage() {
               variant="outline"
               onClick={() => setDeleteDialog({ open: false, service: null })}
             >
-              Annuler
+              Cancel
             </Button>
             <Button
               variant="destructive"
@@ -713,7 +713,7 @@ export function PrestataireServicesPage() {
               disabled={isDeleting}
             >
               {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Supprimer
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

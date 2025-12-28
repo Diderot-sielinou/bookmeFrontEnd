@@ -1,21 +1,21 @@
 /**
  * Hook useAuth
- * 
+ *
  * Gère l'authentification et expose les données utilisateur.
  * Wrapper autour du store Zustand avec logique additionnelle.
  */
 
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { useAuthStore } from '@/stores/authStore';
-import { showError, showSuccess } from '@/components/ui/toast';
-import { getErrorMessage } from '@/lib/api';
-import { ROUTES } from '@/lib/constants';
+import { useAuthStore } from "@/stores/authStore";
+import { showError, showSuccess } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/api";
+import { ROUTES } from "@/lib/constants";
 
 /**
  * Hook d'authentification principal
- * 
+ *
  * Fournit :
  * - État utilisateur (user, profile, isAuthenticated)
  * - Actions (login, logout, initialize)
@@ -49,18 +49,17 @@ export function useAuth() {
   const login = async (email: string, password: string) => {
     try {
       await storeLogin(email, password);
-      showSuccess('Connexion réussie !');
-
+      showSuccess("Login successful!");
       // Redirection selon le rôle
       const user = useAuthStore.getState().user;
       switch (user?.role) {
-        case 'CLIENT':
+        case "CLIENT":
           navigate(ROUTES.CLIENT_DASHBOARD);
           break;
-        case 'PRESTATAIRE':
+        case "PRESTATAIRE":
           navigate(ROUTES.PRESTATAIRE_DASHBOARD);
           break;
-        case 'ADMIN':
+        case "ADMIN":
           navigate(ROUTES.ADMIN_DASHBOARD);
           break;
         default:
@@ -78,7 +77,7 @@ export function useAuth() {
   const logout = async () => {
     try {
       await storeLogout();
-      showSuccess('Déconnexion réussie');
+       showSuccess('Logout successful'); 
       navigate(ROUTES.LOGIN);
     } catch (error) {
       // Même en cas d'erreur, on redirige
@@ -87,9 +86,9 @@ export function useAuth() {
   };
 
   // Helpers de rôle
-  const isClient = user?.role === 'CLIENT';
-  const isPrestataire = user?.role === 'PRESTATAIRE';
-  const isAdmin = user?.role === 'ADMIN';
+  const isClient = user?.role === "CLIENT";
+  const isPrestataire = user?.role === "PRESTATAIRE";
+  const isAdmin = user?.role === "ADMIN";
 
   return {
     // État
@@ -134,7 +133,7 @@ export function useRequireAuth(redirectTo = ROUTES.LOGIN) {
  * Redirige si le rôle ne correspond pas
  */
 export function useRequireRole(
-  allowedRoles: Array<'CLIENT' | 'PRESTATAIRE' | 'ADMIN'>,
+  allowedRoles: Array<"CLIENT" | "PRESTATAIRE" | "ADMIN">,
   redirectTo = ROUTES.HOME
 ) {
   const { user, isAuthenticated, isInitialized, isLoading } = useAuth();
@@ -144,14 +143,27 @@ export function useRequireRole(
     if (isInitialized && !isLoading) {
       if (!isAuthenticated) {
         navigate(ROUTES.LOGIN);
-      } else if (user && !allowedRoles.includes(user.role as 'CLIENT' | 'PRESTATAIRE' | 'ADMIN')) {
+      } else if (
+        user &&
+        !allowedRoles.includes(user.role as "CLIENT" | "PRESTATAIRE" | "ADMIN")
+      ) {
         navigate(redirectTo);
       }
     }
-  }, [user, isAuthenticated, isInitialized, isLoading, allowedRoles, navigate, redirectTo]);
+  }, [
+    user,
+    isAuthenticated,
+    isInitialized,
+    isLoading,
+    allowedRoles,
+    navigate,
+    redirectTo,
+  ]);
 
   return {
-    isAuthorized: user ? allowedRoles.includes(user.role as 'CLIENT' | 'PRESTATAIRE' | 'ADMIN') : false,
+    isAuthorized: user
+      ? allowedRoles.includes(user.role as "CLIENT" | "PRESTATAIRE" | "ADMIN")
+      : false,
     isLoading: !isInitialized || isLoading,
   };
 }

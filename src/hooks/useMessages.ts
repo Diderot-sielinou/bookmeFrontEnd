@@ -1,27 +1,27 @@
 /**
- * Hook pour les messages
- * Gère le compteur de messages non lus
+ * Hook for messages
+ * Manages unread message count
  */
 
-import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { messagesService } from '@/services/messages.service';
 import { useMessageNotifications } from '@/hooks/useSocket';
+import { useQuery } from '@tanstack/react-query';
 
 /**
- * Hook pour le badge de messages non lus
+ * Hook for unread messages badge
  */
 export function useMessagesBadge() {
   const { data, refetch } = useQuery({
     queryKey: ['messages', 'unread-count'],
     queryFn: () => messagesService.getUnreadCount(),
-    staleTime: 30 * 1000, // 30 secondes
-    refetchInterval: 60 * 1000, // Rafraîchir toutes les 60 secondes
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 60 * 1000, // Refresh every 60 seconds
   });
 
-  // Écouter les nouvelles notifications de messages via WebSocket
+  // Listen to new message notifications via WebSocket
   useMessageNotifications(() => {
-    // Rafraîchir le compteur quand un nouveau message arrive
+    // Refresh count when a new message arrives
     refetch();
   });
 

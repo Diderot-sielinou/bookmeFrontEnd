@@ -52,31 +52,31 @@ interface NavItem {
 // ==========================================
 
 const clientNavItems: NavItem[] = [
-  { label: 'Tableau de bord', href: ROUTES.CLIENT_DASHBOARD, icon: LayoutDashboard },
-  { label: 'Mes rendez-vous', href: ROUTES.CLIENT_APPOINTMENTS, icon: Calendar },
+  { label: 'Dashboard', href: ROUTES.CLIENT_DASHBOARD, icon: LayoutDashboard },
+  { label: 'My Appointments', href: ROUTES.CLIENT_APPOINTMENTS, icon: Calendar },
   { label: 'Messages', href: ROUTES.CLIENT_MESSAGES, icon: MessageSquare },
-  { label: 'Mes avis', href: ROUTES.CLIENT_REVIEWS, icon: Star },
-  { label: 'Mon profil', href: ROUTES.CLIENT_PROFILE, icon: User },
+  { label: 'My Reviews', href: ROUTES.CLIENT_REVIEWS, icon: Star },
+  { label: 'My Profile', href: ROUTES.CLIENT_PROFILE, icon: User },
 ];
 
 const prestataireNavItems: NavItem[] = [
-  { label: 'Tableau de bord', href: ROUTES.PRESTATAIRE_DASHBOARD, icon: LayoutDashboard },
-  { label: 'Mon profil', href: ROUTES.PRESTATAIRE_PROFILE, icon: User },
-  { label: 'Mes services', href: ROUTES.PRESTATAIRE_SERVICES, icon: Briefcase },
-  { label: 'Mes créneaux', href: ROUTES.PRESTATAIRE_SLOTS, icon: Clock },
-  { label: 'Rendez-vous', href: ROUTES.PRESTATAIRE_APPOINTMENTS, icon: Calendar },
-  { label: 'Avis reçus', href: ROUTES.PRESTATAIRE_REVIEWS, icon: Star },
+  { label: 'Dashboard', href: ROUTES.PRESTATAIRE_DASHBOARD, icon: LayoutDashboard },
+  { label: 'My Profile', href: ROUTES.PRESTATAIRE_PROFILE, icon: User },
+  { label: 'My Services', href: ROUTES.PRESTATAIRE_SERVICES, icon: Briefcase },
+  { label: 'My Availability', href: ROUTES.PRESTATAIRE_SLOTS, icon: Clock }, // "Availability" ou "Time Slots"
+  { label: 'Appointments', href: ROUTES.PRESTATAIRE_APPOINTMENTS, icon: Calendar },
+  { label: 'Reviews', href: ROUTES.PRESTATAIRE_REVIEWS, icon: Star },
   { label: 'Messages', href: ROUTES.PRESTATAIRE_MESSAGES, icon: MessageSquare },
-  { label: 'Paramètres', href: ROUTES.PRESTATAIRE_SETTINGS, icon: Settings },
+  { label: 'Settings', href: ROUTES.PRESTATAIRE_SETTINGS, icon: Settings },
 ];
 
 const adminNavItems: NavItem[] = [
-  { label: 'Tableau de bord', href: ROUTES.ADMIN_DASHBOARD, icon: LayoutDashboard },
-  { label: 'Utilisateurs', href: ROUTES.ADMIN_USERS, icon: Users },
-  { label: 'Validation', href: ROUTES.ADMIN_PRESTATAIRES_VALIDATION, icon: Shield },
-  { label: 'Modération', href: ROUTES.ADMIN_REVIEWS_MODERATION, icon: Star },
-  { label: 'Catégories', href: ROUTES.ADMIN_CATEGORIES, icon: Briefcase },
-  { label: 'Logs d\'audit', href: ROUTES.ADMIN_LOGS, icon: FileText },
+  { label: 'Dashboard', href: ROUTES.ADMIN_DASHBOARD, icon: LayoutDashboard },
+  { label: 'Users', href: ROUTES.ADMIN_USERS, icon: Users },
+  { label: 'Verification', href: ROUTES.ADMIN_PRESTATAIRES_VALIDATION, icon: Shield }, // "Verification" est plus pro que "Validation"
+  { label: 'Moderation', href: ROUTES.ADMIN_REVIEWS_MODERATION, icon: Star },
+  { label: 'Categories', href: ROUTES.ADMIN_CATEGORIES, icon: Briefcase },
+  { label: 'Audit Logs', href: ROUTES.ADMIN_LOGS, icon: FileText },
 ];
 
 // ==========================================

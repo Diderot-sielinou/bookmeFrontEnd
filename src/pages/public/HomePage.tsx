@@ -1,11 +1,13 @@
 /**
- * Page d'accueil (Landing Page)
+ * HomePage Component
  * 
- * Page publique présentant BookMe avec :
- * - Hero section avec CTA
- * - Comment ça marche
- * - Catégories populaires
- * - Témoignages
+ * Public landing page showcasing BookMe platform.
+ * Features:
+ * - Hero section with CTAs
+ * - How it works section
+ * - Popular categories
+ * - Testimonials
+ * - Final CTA
  */
 
 import { Link } from 'react-router-dom';
@@ -26,53 +28,53 @@ import { ROUTES, PROFESSIONAL_CATEGORIES } from '@/lib/constants';
 import { Button, Card, CardContent, Avatar } from '@/components/ui';
 
 // ==========================================
-// DONNÉES STATIQUES
+// STATIC DATA
 // ==========================================
 
 const steps = [
   {
     icon: Search,
-    title: 'Recherchez',
-    description: 'Trouvez le prestataire idéal parmi notre sélection de professionnels qualifiés.',
+    title: 'Search',
+    description: 'Find the perfect service provider from our curated selection of qualified professionals.',
   },
   {
     icon: Calendar,
-    title: 'Réservez',
-    description: 'Choisissez un créneau disponible qui vous convient et confirmez en quelques clics.',
+    title: 'Book',
+    description: 'Choose an available time slot that fits your schedule and confirm in seconds.',
   },
   {
     icon: CheckCircle,
-    title: 'Profitez',
-    description: 'Rendez-vous à votre rendez-vous et profitez d\'un service de qualité.',
+    title: 'Enjoy',
+    description: 'Show up to your appointment and enjoy quality service from trusted providers.',
   },
 ];
 
 const categoryIcons: Record<string, React.ElementType> = {
-  'Coiffure': Scissors,
-  'Esthétique': Sparkles,
-  'Bien-être': Heart,
-  'Conseil': Briefcase,
+  'Hair Salon': Scissors,
+  'Beauty': Sparkles,
+  'Wellness': Heart,
+  'Consulting': Briefcase,
 };
 
 const testimonials = [
   {
-    name: 'Marie L.',
-    role: 'Cliente',
-    content: 'Super pratique ! J\'ai trouvé ma coiffeuse en 2 minutes et j\'ai pu réserver directement.',
+    name: 'Sarah L.',
+    role: 'Client',
+    content: 'Super convenient! I found my hairdresser in 2 minutes and booked directly online.',
     rating: 5,
     avatar: null,
   },
   {
     name: 'Thomas B.',
-    role: 'Prestataire',
-    content: 'Grâce à BookMe, je gère mes rendez-vous facilement et j\'ai gagné de nouveaux clients.',
+    role: 'Service Provider',
+    content: 'Thanks to BookMe, I manage my appointments easily and gained new clients.',
     rating: 5,
     avatar: null,
   },
   {
     name: 'Sophie M.',
-    role: 'Cliente',
-    content: 'Les rappels automatiques sont top, je n\'oublie plus jamais mes rendez-vous !',
+    role: 'Client',
+    content: 'The automatic reminders are great - I never miss my appointments anymore!',
     rating: 5,
     avatar: null,
   },
@@ -89,7 +91,7 @@ const fadeInUp = {
 };
 
 // ==========================================
-// COMPOSANT
+// COMPONENT
 // ==========================================
 
 export function HomePage() {
@@ -101,7 +103,7 @@ export function HomePage() {
           HERO SECTION
           ========================================== */}
       <section className="relative overflow-hidden bg-gradient-to-b from-mint to-white py-20 lg:py-32">
-        {/* Décoration */}
+        {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-200 rounded-full blur-3xl opacity-30 -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-200 rounded-full blur-3xl opacity-30 translate-y-1/2 -translate-x-1/2" />
 
@@ -113,8 +115,8 @@ export function HomePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              Réservez vos rendez-vous{' '}
-              <span className="text-cyan-500">en quelques clics</span>
+              Book Your Appointments{' '}
+              <span className="text-cyan-500">in Seconds</span>
             </motion.h1>
 
             <motion.p
@@ -123,8 +125,8 @@ export function HomePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
-              Trouvez les meilleurs prestataires près de chez vous et réservez
-              instantanément. Simple, rapide et gratuit.
+              Find the best service providers near you and book instantly.
+              Simple, fast, and free.
             </motion.p>
 
             <motion.div
@@ -136,11 +138,11 @@ export function HomePage() {
               <Button size="lg" asChild className="text-lg px-8">
                 <Link to={ROUTES.SEARCH}>
                   <Search className="mr-2 h-5 w-5" />
-                  Trouver un prestataire
+                  Find a Provider
                 </Link>
               </Button>
               <Button size="lg" variant="outline" asChild className="text-lg px-8">
-                <Link to={ROUTES.REGISTER}>Devenir prestataire</Link>
+                <Link to={ROUTES.REGISTER}>Become a Provider</Link>
               </Button>
             </motion.div>
           </div>
@@ -148,16 +150,16 @@ export function HomePage() {
       </section>
 
       {/* ==========================================
-          COMMENT ÇA MARCHE
+          HOW IT WORKS
           ========================================== */}
       <section className="py-20 bg-white">
         <div className="container px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-charcoal mb-4">
-              Comment ça marche ?
+              How It Works
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Réserver un rendez-vous n'a jamais été aussi simple
+              Booking an appointment has never been easier
             </p>
           </div>
 
@@ -188,16 +190,16 @@ export function HomePage() {
       </section>
 
       {/* ==========================================
-          CATÉGORIES POPULAIRES
+          POPULAR CATEGORIES
           ========================================== */}
       <section className="py-20 bg-mint">
         <div className="container px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-charcoal mb-4">
-              Catégories populaires
+              Popular Categories
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Explorez nos différentes catégories de services
+              Explore our different service categories
             </p>
           </div>
 
@@ -230,7 +232,7 @@ export function HomePage() {
           <div className="text-center mt-8">
             <Button variant="outline" asChild>
               <Link to={ROUTES.SEARCH}>
-                Voir toutes les catégories
+                View All Categories
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -239,16 +241,16 @@ export function HomePage() {
       </section>
 
       {/* ==========================================
-          TÉMOIGNAGES
+          TESTIMONIALS
           ========================================== */}
       <section className="py-20 bg-white">
         <div className="container px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-charcoal mb-4">
-              Ce qu'ils en disent
+              What Our Users Say
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Découvrez les avis de nos utilisateurs
+              Discover reviews from our community
             </p>
           </div>
 
@@ -263,19 +265,19 @@ export function HomePage() {
               >
                 <Card className="h-full">
                   <CardContent className="p-6">
-                    {/* Étoiles */}
+                    {/* Stars */}
                     <div className="flex gap-1 mb-4">
                       {[...Array(testimonial.rating)].map((_, i) => (
                         <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
                       ))}
                     </div>
 
-                    {/* Contenu */}
+                    {/* Content */}
                     <p className="text-muted-foreground mb-6 italic">
                       "{testimonial.content}"
                     </p>
 
-                    {/* Auteur */}
+                    {/* Author */}
                     <div className="flex items-center gap-3">
                       <Avatar
                         src={testimonial.avatar}
@@ -297,20 +299,20 @@ export function HomePage() {
       </section>
 
       {/* ==========================================
-          CTA FINAL
+          FINAL CTA
           ========================================== */}
       <section className="py-20 bg-gradient-to-r from-cyan-500 to-teal-500 text-white">
         <div className="container px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Prêt à commencer ?</h2>
+          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
           <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto">
-            Rejoignez des milliers d'utilisateurs qui ont simplifié leur gestion de rendez-vous
+            Join thousands of users who have simplified their appointment management
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" variant="secondary" asChild className="bg-white text-cyan-600 hover:bg-white/90">
-              <Link to={ROUTES.REGISTER}>Créer un compte gratuit</Link>
+              <Link to={ROUTES.REGISTER}>Create Free Account</Link>
             </Button>
             <Button size="lg" variant="outline" asChild className="border-white text-white hover:bg-white/10">
-              <Link to={ROUTES.SEARCH}>Explorer les prestataires</Link>
+              <Link to={ROUTES.SEARCH}>Browse Providers</Link>
             </Button>
           </div>
         </div>

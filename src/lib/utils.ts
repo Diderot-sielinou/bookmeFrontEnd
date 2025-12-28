@@ -1,21 +1,21 @@
 /**
- * Fonctions utilitaires pour BookMe
+ * Utility Functions for BookMe
  * 
- * Ce module contient des helpers réutilisables dans toute l'application.
+ * This module contains reusable helpers throughout the application.
  */
 
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { format, formatDistance, parseISO, isValid } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
 // ==========================================
-// CLASSES CSS
+// CSS CLASSES
 // ==========================================
 
 /**
- * Combine des classes CSS avec Tailwind merge
- * Utilise clsx pour la logique conditionnelle et twMerge pour résoudre les conflits
+ * Combines CSS classes with Tailwind merge
+ * Uses clsx for conditional logic and twMerge to resolve conflicts
  * 
  * @example
  * cn('px-4 py-2', isActive && 'bg-blue-500', className)
@@ -25,22 +25,22 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 // ==========================================
-// FORMATAGE DES DATES
+// DATE FORMATTING
 // ==========================================
 
 /**
- * Formate une date en français
+ * Formats a date
  * 
- * @param date - Date à formater (string ISO ou Date)
- * @param formatString - Format souhaité (par défaut: 'dd MMMM yyyy')
+ * @param date - Date to format (ISO string or Date)
+ * @param formatString - Desired format (default: 'MMMM d, yyyy')
  * 
  * @example
- * formatDate('2024-01-15') // '15 janvier 2024'
- * formatDate('2024-01-15', 'dd/MM/yyyy') // '15/01/2024'
+ * formatDate('2024-01-15') // 'January 15, 2024'
+ * formatDate('2024-01-15', 'MM/dd/yyyy') // '01/15/2024'
  */
 export function formatDate(
   date: string | Date | null | undefined,
-  formatString: string = 'dd MMMM yyyy'
+  formatString: string = 'MMMM d, yyyy'
 ): string {
   if (!date) return '';
   
@@ -48,25 +48,33 @@ export function formatDate(
   
   if (!isValid(dateObj)) return '';
   
-  return format(dateObj, formatString, { locale: fr });
+  return format(dateObj, formatString, { locale: enUS });
 }
 
 /**
- * Formate une heure (format HH:mm)
+ * Formats time (HH:mm format)
  * 
  * @example
- * formatTime('14:30') // '14h30'
+ * formatTime('14:30') // '2:30 PM'
  */
 export function formatTime(time: string | null | undefined): string {
   if (!time) return '';
-  return time.replace(':', 'h');
+  
+  // Parse HH:mm format
+  const [hours, minutes] = time.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return time;
+  
+  const date = new Date();
+  date.setHours(hours, minutes);
+  
+  return format(date, 'h:mm a');
 }
 
 /**
- * Formate une date et heure ensemble
+ * Formats date and time together
  * 
  * @example
- * formatDateTime('2024-01-15', '14:30') // 'Lundi 15 janvier 2024 à 14h30'
+ * formatDateTime('2024-01-15', '14:30') // 'Monday, January 15, 2024 at 2:30 PM'
  */
 export function formatDateTime(
   date: string | Date | null | undefined,
@@ -74,20 +82,20 @@ export function formatDateTime(
 ): string {
   if (!date) return '';
   
-  const formattedDate = formatDate(date, 'EEEE d MMMM yyyy');
+  const formattedDate = formatDate(date, 'EEEE, MMMM d, yyyy');
   
   if (time) {
-    return `${formattedDate} à ${formatTime(time)}`;
+    return `${formattedDate} at ${formatTime(time)}`;
   }
   
   return formattedDate;
 }
 
 /**
- * Formate une date relative (il y a X temps)
+ * Formats relative date (X time ago)
  * 
  * @example
- * formatRelativeDate('2024-01-15T14:30:00Z') // 'il y a 2 heures'
+ * formatRelativeDate('2024-01-15T14:30:00Z') // '2 hours ago'
  */
 export function formatRelativeDate(date: string | Date | null | undefined): string {
   if (!date) return '';
@@ -96,14 +104,14 @@ export function formatRelativeDate(date: string | Date | null | undefined): stri
   
   if (!isValid(dateObj)) return '';
   
-  return formatDistance(dateObj, new Date(), { addSuffix: true, locale: fr });
+  return formatDistance(dateObj, new Date(), { addSuffix: true, locale: enUS });
 }
 
 /**
- * Formate une durée en minutes vers un format lisible
+ * Formats duration in minutes to readable format
  * 
  * @example
- * formatDuration(90) // '1h30'
+ * formatDuration(90) // '1h 30m'
  * formatDuration(45) // '45 min'
  */
 export function formatDuration(minutes: number): string {
@@ -118,65 +126,59 @@ export function formatDuration(minutes: number): string {
     return `${hours}h`;
   }
   
-  return `${hours}h${remainingMinutes.toString().padStart(2, '0')}`;
+  return `${hours}h ${remainingMinutes}m`;
 }
 
 // ==========================================
-// FORMATAGE DES PRIX
+// PRICE FORMATTING
 // ==========================================
 
 /**
- * Formate un prix en euros
+ * Formats price in USD
  * 
  * @example
- * formatPrice(45.5) // '45,50 €'
- * formatPrice(100) // '100,00 €'
+ * formatPrice(45.5) // '$45.50'
+ * formatPrice(100) // '$100.00'
  */
 export function formatPrice(price: number | null | undefined): string {
   if (price === null || price === undefined) return '';
   
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'EUR',
+    currency: 'USD',
   }).format(price);
 }
 
 /**
- * Formate une fourchette de prix
+ * Formats price range
  * 
  * @example
- * formatPriceRange(30, 100) // '30 € - 100 €'
- * formatPriceRange(50, 50) // 'À partir de 50 €'
+ * formatPriceRange(30, 100) // '$30 - $100'
+ * formatPriceRange(50, 50) // 'Starting at $50'
  */
 export function formatPriceRange(min: number | null, max: number | null): string {
   if (min === null && max === null) return '';
   
   if (min === max || max === null) {
-    return `À partir de ${formatPrice(min)}`;
+    return `Starting at ${formatPrice(min)}`;
   }
   
   if (min === null) {
-    return `Jusqu'à ${formatPrice(max)}`;
+    return `Up to ${formatPrice(max)}`;
   }
   
   return `${formatPrice(min)} - ${formatPrice(max)}`;
 }
 
 // ==========================================
-// FORMATAGE DES NOTES
-// ==========================================
-
-
-
-// ==========================================
-// FORMATAGE DES NOMS
+// NAME FORMATTING
 // ==========================================
 
 /**
- * Formate un nom complet
+ * Formats full name
  * 
  * @example
- * formatFullName('Jean', 'Dupont') // 'Jean Dupont'
+ * formatFullName('John', 'Doe') // 'John Doe'
  */
 export function formatFullName(
   firstName: string | null | undefined,
@@ -186,11 +188,11 @@ export function formatFullName(
 }
 
 /**
- * Obtient les initiales d'un nom
+ * Gets initials from name
  * 
  * @example
- * getInitials('Jean', 'Dupont') // 'JD'
- * getInitials('Jean') // 'J'
+ * getInitials('John', 'Doe') // 'JD'
+ * getInitials('John') // 'J'
  */
 export function getInitials(
   firstName?: string | null,
@@ -202,26 +204,26 @@ export function getInitials(
 }
 
 // ==========================================
-// FORMATAGE DES NUMÉROS
+// PHONE NUMBER FORMATTING
 // ==========================================
 
 /**
- * Formate un numéro de téléphone français
+ * Formats US phone number
  * 
  * @example
- * formatPhoneNumber('0612345678') // '06 12 34 56 78'
+ * formatPhoneNumber('1234567890') // '(123) 456-7890'
  */
 export function formatPhoneNumber(phone: string | null | undefined): string {
   if (!phone) return '';
   
-  // Nettoyer le numéro (garder seulement les chiffres)
+  // Clean number (keep only digits)
   const cleaned = phone.replace(/\D/g, '');
   
-  // Formater en groupes de 2
-  const match = cleaned.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+  // Format in groups
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
   
   if (match) {
-    return match.slice(1).join(' ');
+    return `(${match[1]}) ${match[2]}-${match[3]}`;
   }
   
   return phone;
@@ -232,7 +234,7 @@ export function formatPhoneNumber(phone: string | null | undefined): string {
 // ==========================================
 
 /**
- * Vérifie si une valeur est vide (null, undefined, string vide)
+ * Checks if value is empty (null, undefined, empty string)
  */
 export function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) return true;
@@ -243,7 +245,7 @@ export function isEmpty(value: unknown): boolean {
 }
 
 /**
- * Vérifie si un email est valide
+ * Checks if email is valid
  */
 export function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -251,23 +253,25 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
- * Vérifie si un mot de passe est suffisamment fort
- * (8+ caractères, 1 majuscule, 1 chiffre)
+ * Checks if password is strong enough
+ * (8+ characters, 1 uppercase, 1 number, 1 special char)
  */
 export function isStrongPassword(password: string): boolean {
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
   const hasNumber = /\d/.test(password);
+  const hasSpecial = /[@$!%*?&]/.test(password);
   
-  return hasMinLength && hasUppercase && hasNumber;
+  return hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
 }
 
 // ==========================================
-// UTILITAIRES DIVERS
+// MISC UTILITIES
 // ==========================================
 
 /**
- * Tronque un texte à une longueur maximale
+ * Truncates text to maximum length
  * 
  * @example
  * truncate('Lorem ipsum dolor sit amet', 15) // 'Lorem ipsum...'
@@ -278,7 +282,7 @@ export function truncate(text: string, maxLength: number): string {
 }
 
 /**
- * Génère un hash simple pour une chaîne (pour clés de cache)
+ * Generates simple hash for string (for cache keys)
  */
 export function hashString(str: string): string {
   let hash = 0;
@@ -291,14 +295,14 @@ export function hashString(str: string): string {
 }
 
 /**
- * Délai asynchrone (pour les tests/animations)
+ * Async delay (for tests/animations)
  */
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Debounce une fonction
+ * Debounce a function
  */
 export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
@@ -313,7 +317,27 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 }
 
 /**
- * Génère une couleur de badge basée sur le type
+ * Safely converts value to number
+ * Returns fallback if conversion fails
+ */
+export const toNumber = (value: unknown, fallback = 0): number => {
+  if (typeof value === 'number' && !isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? fallback : parsed;
+  }
+  return fallback;
+};
+
+/**
+ * Formats number with fixed decimals
+ */
+export const formatRating = (value: unknown): string => {
+  return toNumber(value, 0).toFixed(1);
+};
+
+/**
+ * Generates badge color based on type
  */
 export function getBadgeColor(type: string): string {
   const colors: Record<string, string> = {
@@ -327,7 +351,7 @@ export function getBadgeColor(type: string): string {
 }
 
 /**
- * Génère une couleur de statut basée sur le statut
+ * Generates status color based on status
  */
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
@@ -347,47 +371,25 @@ export function getStatusColor(status: string): string {
 }
 
 /**
- * Traduit un statut en français
+ * Translates status to English
  */
 export function translateStatus(status: string): string {
   const translations: Record<string, string> = {
-    // Statuts RDV
-    PENDING: 'En attente',
-    CONFIRMED: 'Confirmé',
-    COMPLETED: 'Terminé',
-    CANCELLED: 'Annulé',
-    NO_SHOW: 'Absent',
-    // Statuts prestataire
-    ACTIVE: 'Actif',
-    SUSPENDED: 'Suspendu',
-    REJECTED: 'Rejeté',
-    // Statuts créneaux
-    AVAILABLE: 'Disponible',
-    RESERVED: 'Réservé',
-    BLOCKED: 'Bloqué',
+    // Appointment statuses
+    PENDING: 'Pending',
+    CONFIRMED: 'Confirmed',
+    COMPLETED: 'Completed',
+    CANCELLED: 'Cancelled',
+    NO_SHOW: 'No Show',
+    // Provider statuses
+    ACTIVE: 'Active',
+    SUSPENDED: 'Suspended',
+    REJECTED: 'Rejected',
+    // Slot statuses
+    AVAILABLE: 'Available',
+    RESERVED: 'Reserved',
+    BLOCKED: 'Blocked',
   };
   
   return translations[status] || status;
 }
-
-// src/lib/utils.ts - Ajouter cette fonction
-
-/**
- * Convertit une valeur en nombre de manière sécurisée
- * Retourne 0 si la conversion échoue
- */
-export const toNumber = (value: unknown, fallback = 0): number => {
-  if (typeof value === 'number' && !isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? fallback : parsed;
-  }
-  return fallback;
-};
-
-/**
- * Formate un nombre avec un nombre fixe de décimales
- */
-export const formatRating = (value: unknown): string => {
-  return toNumber(value, 0).toFixed(1);
-};

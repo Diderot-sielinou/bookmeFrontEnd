@@ -1,15 +1,15 @@
 /**
- * Page Mes Avis (Client)
+ * My Reviews Page (Client)
  * 
- * Liste des avis laissés par le client et possibilité
- * d'en créer de nouveaux pour les rendez-vous terminés.
- * ALIGNÉ AVEC LE BACKEND
+ * List of reviews left by the client and ability
+ * to create new ones for completed appointments.
+ * ALIGNED WITH BACKEND
  */
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import { Star, Edit2, Trash2, Clock, CheckCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -51,8 +51,8 @@ import { RatingStars } from '@/components/shared/RatingStars';
 // ==========================================
 
 const reviewSchema = z.object({
-  rating: z.number().min(1, 'Veuillez donner une note').max(5),
-  comment: z.string().min(10, 'Minimum 10 caractères').max(1000, 'Maximum 1000 caractères'),
+  rating: z.number().min(1, 'Please provide a rating').max(5),
+  comment: z.string().min(10, 'Minimum 10 characters').max(1000, 'Maximum 1000 characters'),
   qualityRating: z.number().min(1).max(5).optional(),
   punctualityRating: z.number().min(1).max(5).optional(),
   cleanlinessRating: z.number().min(1).max(5).optional(),
@@ -117,25 +117,25 @@ function ReviewCard({ review, onEdit, onDelete }: ReviewCardProps) {
             <div className="flex items-center gap-2 mt-2">
               <RatingStars value={rating} size="sm" />
               <span className="text-sm text-muted-foreground">
-                {format(new Date(createdAt), 'd MMMM yyyy', { locale: fr })}
+                {format(new Date(createdAt), 'MMMM d, yyyy', { locale: enUS })}
               </span>
               {review.editCount > 0 && (
                 <Badge variant="outline" className="text-xs">
-                  Modifié {review.editCount}x
+                  Edited {review.editCount}x
                 </Badge>
               )}
             </div>
 
             <p className="mt-3 text-muted-foreground">{comment}</p>
 
-            {/* Réponse du prestataire */}
+            {/* Provider response */}
             {prestataireResponse && (
               <div className="mt-4 p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm font-medium">Réponse du prestataire :</p>
+                  <p className="text-sm font-medium">Provider Response:</p>
                   {review.responseAt && (
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(review.responseAt), 'd MMM yyyy', { locale: fr })}
+                      {format(new Date(review.responseAt), 'MMM d, yyyy', { locale: enUS })}
                     </span>
                   )}
                 </div>
@@ -178,14 +178,14 @@ function PendingReviewCard({ appointment, onReview }: PendingReviewCardProps) {
             <h3 className="font-semibold">{name}</h3>
             <p className="text-sm text-muted-foreground">{service?.name}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {slot && format(new Date(slot.date), 'd MMMM yyyy', { locale: fr })} à{' '}
+              {slot && format(new Date(slot.date), 'MMMM d, yyyy', { locale: enUS })} at{' '}
               {slot && formatTime(slot.startTime)}
             </p>
           </div>
 
           <Button onClick={() => onReview(appointment)}>
             <Star className="h-4 w-4 mr-2" />
-            Laisser un avis
+            Leave Review
           </Button>
         </div>
       </CardContent>
@@ -260,12 +260,12 @@ function ReviewDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {existingReview ? 'Modifier mon avis' : 'Laisser un avis'}
+            {existingReview ? 'Edit My Review' : 'Leave a Review'}
           </DialogTitle>
           <DialogDescription>
             {existingReview
-              ? `Modifiez votre avis (${2 - existingReview.editCount} modification(s) restante(s))`
-              : `Partagez votre expérience avec ${name}`}
+              ? `Edit your review (${2 - existingReview.editCount} edit(s) remaining)`
+              : `Share your experience with ${name}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -290,7 +290,7 @@ function ReviewDialog({
 
           {/* Rating */}
           <div className="space-y-2">
-            <Label>Note globale *</Label>
+            <Label>Overall Rating *</Label>
             <div className="flex justify-center py-2">
               <RatingStars
                 value={rating}
@@ -307,10 +307,10 @@ function ReviewDialog({
 
           {/* Comment */}
           <div className="space-y-2">
-            <Label htmlFor="comment">Commentaire *</Label>
+            <Label htmlFor="comment">Comment *</Label>
             <Textarea
               id="comment"
-              placeholder="Décrivez votre expérience..."
+              placeholder="Describe your experience..."
               rows={4}
               {...register('comment')}
             />
@@ -321,10 +321,10 @@ function ReviewDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
+              Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'En cours...' : existingReview ? 'Modifier' : 'Publier'}
+              {isLoading ? 'Submitting...' : existingReview ? 'Update' : 'Publish'}
             </Button>
           </DialogFooter>
         </form>
@@ -355,7 +355,7 @@ export function ClientReviewsPage() {
     review: Review | null;
   }>({ open: false, review: null });
 
-  // ✅ Hooks alignés avec le backend
+  // Hooks aligned with backend
   const { data: reviewsData, isLoading: reviewsLoading, refetch: refetchReviews } = useMyReviews();
   const { data: appointmentsData, isLoading: appointmentsLoading } = useMyAppointments({
     status: AppointmentStatus.COMPLETED,
@@ -367,7 +367,7 @@ export function ClientReviewsPage() {
   const reviews = reviewsData?.data || [];
   const allAppointments = appointmentsData?.data || [];
 
-  // Filtrer les rendez-vous sans avis
+  // Filter appointments without reviews
   const reviewedIds = new Set(reviews.map((r) => r.appointmentId));
   const pendingAppointments = allAppointments.filter((a) => !reviewedIds.has(a.id));
 
@@ -391,7 +391,7 @@ export function ClientReviewsPage() {
 
   const handleEditReview = (review: Review) => {
     if (!canEditReview(review)) {
-      showError('Vous ne pouvez plus modifier cet avis');
+      showError('You can no longer edit this review');
       return;
     }
     setDialogState({ open: true, appointment: review.appointment!, review });
@@ -440,7 +440,7 @@ export function ClientReviewsPage() {
     setIsDeleting(true);
     try {
       await deleteReview(deleteDialog.review.id);
-      showSuccess('Avis supprimé');
+      showSuccess('Review deleted');
       refetchReviews();
       setDeleteDialog({ open: false, review: null });
     } catch (error) {
@@ -458,9 +458,9 @@ export function ClientReviewsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Mes avis</h1>
+        <h1 className="text-3xl font-bold">My Reviews</h1>
         <p className="text-muted-foreground mt-1">
-          Gérez vos avis sur les prestataires
+          Manage your reviews of providers
         </p>
       </div>
 
@@ -473,7 +473,7 @@ export function ClientReviewsPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{reviews.length}</p>
-              <p className="text-sm text-muted-foreground">Avis publiés</p>
+              <p className="text-sm text-muted-foreground">Published Reviews</p>
             </div>
           </CardContent>
         </Card>
@@ -484,7 +484,7 @@ export function ClientReviewsPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{pendingAppointments.length}</p>
-              <p className="text-sm text-muted-foreground">En attente</p>
+              <p className="text-sm text-muted-foreground">Pending</p>
             </div>
           </CardContent>
         </Card>
@@ -493,9 +493,9 @@ export function ClientReviewsPage() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList>
-          <TabsTrigger value="published">Publiés ({reviews.length})</TabsTrigger>
+          <TabsTrigger value="published">Published ({reviews.length})</TabsTrigger>
           <TabsTrigger value="pending">
-            En attente
+            Pending
             {pendingAppointments.length > 0 && (
               <Badge variant="secondary" className="ml-2">
                 {pendingAppointments.length}
@@ -508,8 +508,8 @@ export function ClientReviewsPage() {
           {reviews.length === 0 ? (
             <EmptyState
               icon={Star}
-              title="Aucun avis publié"
-              description="Vous n'avez pas encore laissé d'avis"
+              title="No published reviews"
+              description="You haven't left any reviews yet"
             />
           ) : (
             <div className="space-y-4">
@@ -529,8 +529,8 @@ export function ClientReviewsPage() {
           {pendingAppointments.length === 0 ? (
             <EmptyState
               icon={CheckCircle}
-              title="Tout est à jour !"
-              description="Vous avez laissé un avis pour tous vos rendez-vous terminés"
+              title="All up to date!"
+              description="You've left a review for all your completed appointments"
             />
           ) : (
             <div className="space-y-4">
@@ -563,9 +563,9 @@ export function ClientReviewsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer l'avis</DialogTitle>
+            <DialogTitle>Delete Review</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer cet avis ? Cette action est irréversible.
+              Are you sure you want to delete this review? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -574,14 +574,14 @@ export function ClientReviewsPage() {
               onClick={() => setDeleteDialog({ open: false, review: null })}
               disabled={isDeleting}
             >
-              Annuler
+              Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
               disabled={isDeleting}
             >
-              {isDeleting ? 'Suppression...' : 'Supprimer'}
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

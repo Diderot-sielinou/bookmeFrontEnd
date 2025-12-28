@@ -1,27 +1,29 @@
 /**
- * Page de Réservation
+ * BookingPage Component
  * 
- * Flux de réservation complet :
- * 1. Sélection du service (si non présélectionné)
- * 2. Choix du créneau
- * 3. Confirmation et notes
+ * Multi-step booking flow with validation.
+ * Features:
+ * - Service selection (if not pre-selected)
+ * - Calendar and time slot selection
+ * - Booking confirmation
+ * - Real-time validation
+ * - Loading states
+ * - Success feedback
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { format, addDays, isSameDay, parseISO, startOfDay } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   Calendar,
   Clock,
-  Euro,
   MapPin,
-  User,
   FileText,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -47,7 +49,6 @@ import {
   Separator,
 } from '@/components/ui';
 import { showSuccess, showError } from '@/components/ui/toast';
-import { Spinner } from '@/components/ui/spinner';
 import { ErrorState } from '@/components/shared';
 
 // ==========================================
@@ -75,7 +76,7 @@ interface StepIndicatorProps {
 function StepIndicator({ currentStep, hasService }: StepIndicatorProps) {
   const steps = [
     { key: 'service', label: 'Service', show: !hasService },
-    { key: 'slot', label: 'Créneau' },
+    { key: 'slot', label: 'Time Slot' },
     { key: 'confirm', label: 'Confirmation' },
   ].filter((s) => s.show !== false);
 
@@ -138,9 +139,9 @@ function ServiceStep({ services, selected, onSelect, onNext }: ServiceStepProps)
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">Choisissez un service</h2>
+        <h2 className="text-xl font-semibold">Choose a Service</h2>
         <p className="text-muted-foreground">
-          Sélectionnez le service que vous souhaitez réserver
+          Select the service you want to book
         </p>
       </div>
 
@@ -179,7 +180,7 @@ function ServiceStep({ services, selected, onSelect, onNext }: ServiceStepProps)
                       {formatPrice(service.price)}
                     </p>
                     {selected?.id === service.id && (
-                      <Badge className="mt-1">Sélectionné</Badge>
+                      <Badge className="mt-1">Selected</Badge>
                     )}
                   </div>
                 </div>
@@ -190,7 +191,7 @@ function ServiceStep({ services, selected, onSelect, onNext }: ServiceStepProps)
 
       <div className="flex justify-end">
         <Button onClick={onNext} disabled={!selected}>
-          Continuer
+          Continue
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
@@ -226,7 +227,7 @@ function SlotStep({
   const today = startOfDay(new Date());
   const maxDate = addDays(today, 60); // 2 months ahead
 
-  // Fetch available slots for selected date range
+  // Fetch available slots
   const startDate = selectedDate || today;
   const endDate = addDays(startDate, 7);
 
@@ -235,13 +236,14 @@ function SlotStep({
     endDate: format(endDate, 'yyyy-MM-dd'),
   });
 
-  // Filter slots for selected date that can accommodate the service duration
+  // Filter slots for selected date
   const availableSlots = useMemo(() => {
     if (!selectedDate) return [];
     return slots.filter((slot: Slot) => {
       const slotDate = parseISO(slot.date);
       if (!isSameDay(slotDate, selectedDate)) return false;
-      // Check if slot duration is enough for the service
+      
+      // Check if slot duration is sufficient for service
       const slotMinutes =
         (parseInt(slot.endTime.split(':')[0]) * 60 + parseInt(slot.endTime.split(':')[1])) -
         (parseInt(slot.startTime.split(':')[0]) * 60 + parseInt(slot.startTime.split(':')[1]));
@@ -249,7 +251,7 @@ function SlotStep({
     });
   }, [slots, selectedDate, service.duration]);
 
-  // Group slots by date for calendar marking
+  // Dates with available slots
   const datesWithSlots = useMemo(() => {
     const dates = new Set<string>();
     slots.forEach((slot: Slot) => dates.add(slot.date));
@@ -259,9 +261,9 @@ function SlotStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">Choisissez un créneau</h2>
+        <h2 className="text-xl font-semibold">Choose a Time Slot</h2>
         <p className="text-muted-foreground">
-          Sélectionnez une date et un horaire pour votre rendez-vous
+          Select a date and time for your appointment
         </p>
       </div>
 
@@ -286,9 +288,11 @@ function SlotStep({
               modifiersClassNames={{
                 available: 'bg-cyan-100 text-cyan-900 font-medium',
               }}
-              locale={fr}
               className="rounded-md border p-3"
             />
+            <p className="text-xs text-muted-foreground mt-2">
+              Dates with available slots are highlighted
+            </p>
           </CardContent>
         </Card>
 
@@ -297,23 +301,26 @@ function SlotStep({
           <CardHeader>
             <CardTitle className="text-base">
               {selectedDate
-                ? `Créneaux du ${format(selectedDate, 'EEEE d MMMM', { locale: fr })}`
-                : 'Sélectionnez une date'}
+                ? format(selectedDate, 'EEEE, MMMM d')
+                : 'Select a date'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {!selectedDate ? (
               <p className="text-muted-foreground text-center py-8">
-                Choisissez une date dans le calendrier
+                Choose a date from the calendar
               </p>
             ) : isLoading ? (
               <div className="flex justify-center py-8">
-                <Spinner />
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : availableSlots.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                Aucun créneau disponible ce jour
-              </p>
+              <div className="text-center py-8">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                <p className="text-muted-foreground">
+                  No slots available on this date
+                </p>
+              </div>
             ) : (
               <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
                 {availableSlots.map((slot) => (
@@ -323,11 +330,11 @@ function SlotStep({
                     className={cn(
                       'p-3 rounded-lg border text-center transition-all',
                       selectedSlot?.id === slot.id
-                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700 font-medium'
                         : 'hover:border-cyan-300 hover:bg-cyan-50/50'
                     )}
                   >
-                    <span className="font-medium">
+                    <span className="text-sm">
                       {formatTime(slot.startTime)}
                     </span>
                   </button>
@@ -341,10 +348,10 @@ function SlotStep({
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour
+          Back
         </Button>
         <Button onClick={onNext} disabled={!selectedSlot}>
-          Continuer
+          Continue
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
@@ -380,19 +387,19 @@ function ConfirmStep({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">Confirmation</h2>
+        <h2 className="text-xl font-semibold">Confirm Booking</h2>
         <p className="text-muted-foreground">
-          Vérifiez les détails et confirmez votre réservation
+          Review details and confirm your appointment
         </p>
       </div>
 
       {/* Summary */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Récapitulatif</CardTitle>
+          <CardTitle className="text-base">Booking Summary</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Prestataire */}
+          {/* Provider */}
           <div className="flex items-center gap-3">
             <Avatar
               src={prestataire?.avatar}
@@ -421,7 +428,7 @@ function ConfirmStep({
             <div className="flex-1">
               <p className="font-medium">{service.name}</p>
               <p className="text-sm text-muted-foreground">
-                Durée : {formatDuration(service.duration)}
+                Duration: {formatDuration(service.duration)}
               </p>
             </div>
             <p className="font-bold text-cyan-600">{formatPrice(service.price)}</p>
@@ -436,7 +443,7 @@ function ConfirmStep({
             </div>
             <div>
               <p className="font-medium">
-                {format(parseISO(slot.date), 'EEEE d MMMM yyyy', { locale: fr })}
+                {format(parseISO(slot.date), 'EEEE, MMMM d, yyyy')}
               </p>
               <p className="text-sm text-muted-foreground">
                 {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
@@ -449,17 +456,18 @@ function ConfirmStep({
       {/* Note */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Note pour le prestataire</CardTitle>
+          <CardTitle className="text-base">Note for Provider</CardTitle>
           <CardDescription>
-            Ajoutez des informations utiles (optionnel)
+            Add any special requests or information (optional)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Textarea
-            placeholder="Ex: Je souhaite une coupe courte, j'ai les cheveux épais..."
+            placeholder="e.g., I prefer a short haircut, I have thick hair..."
             value={note}
             onChange={(e) => onNoteChange(e.target.value)}
             rows={3}
+            disabled={isLoading}
           />
         </CardContent>
       </Card>
@@ -468,13 +476,13 @@ function ConfirmStep({
       <Card className="bg-cyan-50 border-cyan-200">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
-            <span className="font-medium">Total à payer</span>
+            <span className="font-medium">Total Amount</span>
             <span className="text-2xl font-bold text-cyan-600">
               {formatPrice(service.price)}
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Paiement sur place le jour du rendez-vous
+            Payment on-site at the appointment
           </p>
         </CardContent>
       </Card>
@@ -482,18 +490,18 @@ function ConfirmStep({
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack} disabled={isLoading}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour
+          Back
         </Button>
         <Button onClick={onConfirm} disabled={isLoading} size="lg">
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Réservation en cours...
+              Booking...
             </>
           ) : (
             <>
               <Check className="h-4 w-4 mr-2" />
-              Confirmer la réservation
+              Confirm Booking
             </>
           )}
         </Button>
@@ -521,9 +529,9 @@ function SuccessView({ prestataire, service, slot }: SuccessViewProps) {
         <Check className="h-10 w-10 text-green-600" />
       </div>
       
-      <h1 className="text-2xl font-bold mb-2">Réservation confirmée !</h1>
+      <h1 className="text-2xl font-bold mb-2">Booking Confirmed!</h1>
       <p className="text-muted-foreground mb-8">
-        Votre rendez-vous a été réservé avec succès
+        Your appointment has been successfully booked
       </p>
 
       <Card className="max-w-md mx-auto mb-8">
@@ -547,7 +555,7 @@ function SuccessView({ prestataire, service, slot }: SuccessViewProps) {
             <Calendar className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="font-medium">
-                {format(parseISO(slot.date), 'EEEE d MMMM yyyy', { locale: fr })}
+                {format(parseISO(slot.date), 'EEEE, MMMM d, yyyy')}
               </p>
               <p className="text-sm text-muted-foreground">
                 {formatTime(slot.startTime)}
@@ -559,10 +567,10 @@ function SuccessView({ prestataire, service, slot }: SuccessViewProps) {
 
       <div className="flex justify-center gap-4">
         <Button variant="outline" onClick={() => navigate(ROUTES.CLIENT_APPOINTMENTS)}>
-          Voir mes rendez-vous
+          View My Appointments
         </Button>
         <Button onClick={() => navigate(ROUTES.HOME)}>
-          Retour à l'accueil
+          Back to Home
         </Button>
       </div>
     </div>
@@ -570,18 +578,18 @@ function SuccessView({ prestataire, service, slot }: SuccessViewProps) {
 }
 
 // ==========================================
-// MAIN PAGE
+// MAIN COMPONENT
 // ==========================================
 
 export function BookingPage() {
   const { id: prestataireId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const preSelectedServiceId = searchParams.get('serviceId');
 
-  // Queries
+  // Fetch data
   const { data: prestataire, isLoading: loadingPrestataire, error: prestataireError } = usePrestataire(prestataireId!);
   const { data: services = [], isLoading: loadingServices } = usePrestataireServices(prestataireId!);
 
@@ -642,9 +650,16 @@ export function BookingPage() {
         serviceId: booking.service.id,
         clientNote: booking.note || undefined,
       });
+      showSuccess('Appointment booked successfully!');
       setIsSuccess(true);
-    } catch (error) {
-      showError('Impossible de créer la réservation');
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message;
+      if (message?.toLowerCase().includes('already booked')) {
+        showError('This time slot is no longer available. Please choose another.');
+        setStep('slot');
+      } else {
+        showError('Unable to create booking. Please try again.');
+      }
     }
   };
 
@@ -652,8 +667,9 @@ export function BookingPage() {
   if (loadingPrestataire || loadingServices) {
     return (
       <div className="container max-w-4xl px-4 py-12">
-        <div className="flex justify-center">
-          <Spinner size="lg" />
+        <div className="flex flex-col items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -664,7 +680,7 @@ export function BookingPage() {
     return (
       <div className="container max-w-4xl px-4 py-12">
         <ErrorState
-          message="Impossible de charger ce prestataire"
+          message="Unable to load provider information"
           onRetry={() => window.location.reload()}
         />
       </div>
@@ -695,12 +711,12 @@ export function BookingPage() {
         className="mb-6"
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Retour au profil
+        Back to Profile
       </Button>
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold">Réserver chez {prestataire.businessName}</h1>
+        <h1 className="text-2xl font-bold">Book with {prestataire.businessName}</h1>
       </div>
 
       {/* Step indicator */}

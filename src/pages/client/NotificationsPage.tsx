@@ -1,13 +1,13 @@
 /**
- * NotificationsPage (Client)
+ * Notifications Page (Client)
  * 
- * Page de gestion des notifications pour les clients.
- * Affiche toutes les notifications avec filtres et actions.
+ * Notifications management page for clients.
+ * Displays all notifications with filters and actions.
  */
 
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import {
   Bell,
   Calendar,
@@ -95,20 +95,20 @@ const getNotificationColor = (type: NotificationTypeEnum) => {
 const getNotificationTitle = (type: NotificationTypeEnum): string => {
   switch (type) {
     case NotificationTypeEnum.NEW_BOOKING:
-      return 'Nouveau rendez-vous';
+      return 'New Appointment';
     case NotificationTypeEnum.CANCELLATION:
-      return 'Rendez-vous annulé';
+      return 'Appointment Cancelled';
     case NotificationTypeEnum.REMINDER:
-      return 'Rappel de rendez-vous';
+      return 'Appointment Reminder';
     case NotificationTypeEnum.NEW_MESSAGE:
-      return 'Nouveau message';
+      return 'New Message';
     case NotificationTypeEnum.NEW_REVIEW:
-      return 'Nouvel avis';
+      return 'New Review';
     case NotificationTypeEnum.BADGE_EARNED:
-      return 'Badge obtenu';
+      return 'Badge Earned';
     case NotificationTypeEnum.SYSTEM:
     default:
-      return 'Notification système';
+      return 'System Notification';
   }
 };
 
@@ -125,7 +125,7 @@ interface NotificationItemProps {
 function NotificationItem({ notification, onMarkAsRead, onDelete }: NotificationItemProps) {
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), {
     addSuffix: true,
-    locale: fr,
+    locale: enUS,
   });
   
   const IconComponent = getNotificationIcon(notification.type);
@@ -162,7 +162,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
                 {!notification.read && (
                   <DropdownMenuItem onClick={() => onMarkAsRead(notification.id)}>
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Marquer comme lu
+                    Mark as Read
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem 
@@ -170,7 +170,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
                   className="text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Supprimer
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -179,7 +179,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete }: Notification
           <div className="flex items-center gap-2 mt-2">
             <span className="text-xs text-muted-foreground">{timeAgo}</span>
             {!notification.read && (
-              <Badge variant="secondary" className="text-xs">Nouveau</Badge>
+              <Badge variant="secondary" className="text-xs">New</Badge>
             )}
           </div>
         </div>
@@ -206,15 +206,15 @@ export default function NotificationsPage() {
   const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
   const [markAllLoading, setMarkAllLoading] = useState(false);
 
-  // Filtrer les notifications
+  // Filter notifications
   const filteredNotifications = notifications.filter((n) => {
     if (filter === 'unread') return !n.read;
     return true;
   });
 
-  // Grouper par date
+  // Group by date
   const groupedNotifications = filteredNotifications.reduce((groups, notification) => {
-    const date = new Date(notification.createdAt).toLocaleDateString('fr-FR', {
+    const date = new Date(notification.createdAt).toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -274,8 +274,8 @@ export default function NotificationsPage() {
           <h1 className="text-2xl font-bold">Notifications</h1>
           <p className="text-muted-foreground">
             {unreadCount > 0 
-              ? `${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}`
-              : 'Toutes vos notifications sont lues'
+              ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+              : 'All notifications read'
             }
           </p>
         </div>
@@ -291,7 +291,7 @@ export default function NotificationsPage() {
             ) : (
               <CheckCheck className="h-4 w-4 mr-2" />
             )}
-            Tout marquer comme lu
+            Mark All as Read
           </Button>
         )}
       </div>
@@ -301,11 +301,11 @@ export default function NotificationsPage() {
         <TabsList>
           <TabsTrigger value="all" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
-            Toutes ({notifications.length})
+            All ({notifications.length})
           </TabsTrigger>
           <TabsTrigger value="unread" className="flex items-center gap-2">
             <Filter className="h-4 w-4" />
-            Non lues ({unreadCount})
+            Unread ({unreadCount})
           </TabsTrigger>
         </TabsList>
 
@@ -313,11 +313,11 @@ export default function NotificationsPage() {
           {filteredNotifications.length === 0 ? (
             <EmptyState
               icon={Bell}
-              title={filter === 'unread' ? 'Aucune notification non lue' : 'Aucune notification'}
+              title={filter === 'unread' ? 'No unread notifications' : 'No notifications'}
               description={
                 filter === 'unread'
-                  ? 'Vous êtes à jour ! Toutes vos notifications ont été lues.'
-                  : "Vous n'avez pas encore reçu de notifications."
+                  ? "You're all caught up! All your notifications have been read."
+                  : "You haven't received any notifications yet."
               }
             />
           ) : (
@@ -348,15 +348,15 @@ export default function NotificationsPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la notification ?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Notification?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. La notification sera définitivement supprimée.
+              This action cannot be undone. The notification will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
-              Supprimer
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

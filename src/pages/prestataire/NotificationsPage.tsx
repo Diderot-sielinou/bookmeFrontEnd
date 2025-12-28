@@ -1,14 +1,14 @@
 /**
- * NotificationsPage (Prestataire)
+ * NotificationsPage (Provider)
  * 
- * Page de gestion des notifications pour les prestataires.
- * Affiche les notifications de rendez-vous, messages, avis, et système.
- * ALIGNÉ AVEC LE BACKEND
+ * Notification management page for providers.
+ * Displays notifications for appointments, messages, reviews, and system.
+ * ALIGNED WITH BACKEND
  */
 
 import { useState } from 'react';
 import { format, isToday, isYesterday, isThisWeek, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import {
   Bell,
   BellOff,
@@ -144,18 +144,18 @@ const formatNotificationDate = (dateString: string): string => {
   const date = parseISO(dateString);
   
   if (isToday(date)) {
-    return format(date, "'Aujourd'hui à' HH:mm", { locale: fr });
+    return format(date, "'Today at' HH:mm", { locale: enUS });
   }
   
   if (isYesterday(date)) {
-    return format(date, "'Hier à' HH:mm", { locale: fr });
+    return format(date, "'Yesterday at' HH:mm", { locale: enUS });
   }
   
   if (isThisWeek(date)) {
-    return format(date, "EEEE 'à' HH:mm", { locale: fr });
+    return format(date, "EEEE 'at' HH:mm", { locale: enUS });
   }
   
-  return format(date, "d MMMM 'à' HH:mm", { locale: fr });
+  return format(date, "MMMM d 'at' HH:mm", { locale: enUS });
 };
 
 const groupNotificationsByDate = (notifications: Notification[]): NotificationGroup[] => {
@@ -166,13 +166,13 @@ const groupNotificationsByDate = (notifications: Notification[]): NotificationGr
     let groupKey: string;
     
     if (isToday(date)) {
-      groupKey = "Aujourd'hui";
+      groupKey = "Today";
     } else if (isYesterday(date)) {
-      groupKey = 'Hier';
+      groupKey = 'Yesterday';
     } else if (isThisWeek(date)) {
-      groupKey = 'Cette semaine';
+      groupKey = 'This Week';
     } else {
-      groupKey = 'Plus ancien';
+      groupKey = 'Older';
     }
     
     if (!groups[groupKey]) {
@@ -181,7 +181,7 @@ const groupNotificationsByDate = (notifications: Notification[]): NotificationGr
     groups[groupKey].push(notification);
   });
   
-  const orderedKeys = ["Aujourd'hui", 'Hier', 'Cette semaine', 'Plus ancien'];
+  const orderedKeys = ["Today", 'Yesterday', 'This Week', 'Older'];
   
   return orderedKeys
     .filter((key) => groups[key]?.length > 0)
@@ -191,7 +191,7 @@ const groupNotificationsByDate = (notifications: Notification[]): NotificationGr
     }));
 };
 
-// Mapper les types pour les filtres
+// Map types for filters
 const getTypeCategory = (type: NotificationType): string => {
   switch (type) {
     case NotificationType.NEW_BOOKING:
@@ -233,7 +233,7 @@ function NotificationItem({
     }
   };
 
-  // Extraire les données supplémentaires si disponibles
+  // Extract additional data if available
   const notificationData = notification.data as {
     appointmentId?: string;
     date?: string;
@@ -276,7 +276,7 @@ function NotificationItem({
               {!notification.read && (
                 <DropdownMenuItem onClick={() => onMarkAsRead(notification.id)}>
                   <Check className="mr-2 h-4 w-4" />
-                  Marquer comme lu
+                  Mark as Read
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -285,7 +285,7 @@ function NotificationItem({
                 className="text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Supprimer
+                Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -296,7 +296,7 @@ function NotificationItem({
           <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
             <Calendar className="h-3 w-3" />
             <span>
-              {format(parseISO(notificationData.date), 'd MMMM yyyy', { locale: fr })} à {notificationData.time.slice(0, 5)}
+              {format(parseISO(notificationData.date), 'MMMM d, yyyy', { locale: enUS })} at {notificationData.time.slice(0, 5)}
             </span>
           </div>
         )}
@@ -309,7 +309,7 @@ function NotificationItem({
           </span>
           {link && (
             <span className="text-xs text-primary flex items-center gap-1">
-              Voir les détails
+              View Details
               <ChevronRight className="h-3 w-3" />
             </span>
           )}
@@ -364,27 +364,27 @@ function NotificationSettingsSheet() {
       <SheetTrigger asChild>
         <Button variant="outline" size="sm">
           <Settings className="mr-2 h-4 w-4" />
-          Paramètres
+          Settings
         </Button>
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Paramètres de notification</SheetTitle>
+          <SheetTitle>Notification Settings</SheetTitle>
           <SheetDescription>
-            Choisissez comment vous souhaitez être notifié
+            Choose how you want to be notified
           </SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
           {/* Email notifications */}
           <div>
-            <h4 className="font-medium mb-4">Notifications par email</h4>
+            <h4 className="font-medium mb-4">Email Notifications</h4>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="email-appointments" className="flex flex-col gap-1">
-                  <span>Rendez-vous</span>
+                  <span>Appointments</span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Nouvelles réservations et annulations
+                    New bookings and cancellations
                   </span>
                 </Label>
                 <Switch
@@ -398,7 +398,7 @@ function NotificationSettingsSheet() {
                 <Label htmlFor="email-messages" className="flex flex-col gap-1">
                   <span>Messages</span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Nouveaux messages des clients
+                    New messages from clients
                   </span>
                 </Label>
                 <Switch
@@ -410,9 +410,9 @@ function NotificationSettingsSheet() {
               <Separator />
               <div className="flex items-center justify-between">
                 <Label htmlFor="email-reviews" className="flex flex-col gap-1">
-                  <span>Avis</span>
+                  <span>Reviews</span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Nouveaux avis clients
+                    New client reviews
                   </span>
                 </Label>
                 <Switch
@@ -426,7 +426,7 @@ function NotificationSettingsSheet() {
                 <Label htmlFor="email-marketing" className="flex flex-col gap-1">
                   <span>Marketing</span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Promotions et nouveautés
+                    Promotions and news
                   </span>
                 </Label>
                 <Switch
@@ -440,13 +440,13 @@ function NotificationSettingsSheet() {
 
           {/* Push notifications */}
           <div>
-            <h4 className="font-medium mb-4">Notifications push</h4>
+            <h4 className="font-medium mb-4">Push Notifications</h4>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="push-appointments" className="flex flex-col gap-1">
-                  <span>Rendez-vous</span>
+                  <span>Appointments</span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Alertes en temps réel
+                    Real-time alerts
                   </span>
                 </Label>
                 <Switch
@@ -460,7 +460,7 @@ function NotificationSettingsSheet() {
                 <Label htmlFor="push-messages" className="flex flex-col gap-1">
                   <span>Messages</span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Notifications instantanées
+                    Instant notifications
                   </span>
                 </Label>
                 <Switch
@@ -472,9 +472,9 @@ function NotificationSettingsSheet() {
               <Separator />
               <div className="flex items-center justify-between">
                 <Label htmlFor="push-reviews" className="flex flex-col gap-1">
-                  <span>Avis</span>
+                  <span>Reviews</span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Soyez alerté des nouveaux avis
+                    Be notified of new reviews
                   </span>
                 </Label>
                 <Switch
@@ -486,7 +486,7 @@ function NotificationSettingsSheet() {
             </div>
           </div>
 
-          <Button className="w-full">Enregistrer les préférences</Button>
+          <Button className="w-full">Save Preferences</Button>
         </div>
       </SheetContent>
     </Sheet>
@@ -498,7 +498,7 @@ function NotificationSettingsSheet() {
 // ==========================================
 
 export function NotificationsPage() {
-  // ✅ Utiliser le hook useNotifications aligné avec le backend
+  // ✅ Use useNotifications hook aligned with backend
   const {
     notifications,
     unreadCount,
@@ -516,7 +516,7 @@ export function NotificationsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Stats basées sur les vraies données
+  // Stats based on real data
   const appointmentCount = notifications.filter(
     (n) => [NotificationType.NEW_BOOKING, NotificationType.CANCELLATION, NotificationType.REMINDER].includes(n.type) && !n.read
   ).length;
@@ -558,8 +558,8 @@ export function NotificationsPage() {
       setIsDeleting(true);
       try {
         await deleteNotification(notificationToDelete);
-        showSuccess('Notification supprimée');
-        refresh(); // Rafraîchir la liste
+        showSuccess('Notification deleted');
+        refresh(); // Refresh list
       } catch (error) {
         showError(getErrorMessage(error));
       } finally {
@@ -590,12 +590,12 @@ export function NotificationsPage() {
             Notifications
             {unreadCount > 0 && (
               <Badge variant="destructive" className="ml-2">
-                {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+                {unreadCount} unread
               </Badge>
             )}
           </h1>
           <p className="text-muted-foreground">
-            Gérez vos notifications et restez informé
+            Manage your notifications and stay informed
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -606,7 +606,7 @@ export function NotificationsPage() {
             disabled={isRefreshing}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Actualiser
+            Refresh
           </Button>
           <NotificationSettingsSheet />
         </div>
@@ -625,7 +625,7 @@ export function NotificationsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{unreadCount}</p>
-                <p className="text-xs text-muted-foreground">Non lues</p>
+                <p className="text-xs text-muted-foreground">Unread</p>
               </div>
             </div>
           </CardContent>
@@ -641,7 +641,7 @@ export function NotificationsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{appointmentCount}</p>
-                <p className="text-xs text-muted-foreground">Rendez-vous</p>
+                <p className="text-xs text-muted-foreground">Appointments</p>
               </div>
             </div>
           </CardContent>
@@ -673,7 +673,7 @@ export function NotificationsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{reviewCount}</p>
-                <p className="text-xs text-muted-foreground">Avis</p>
+                <p className="text-xs text-muted-foreground">Reviews</p>
               </div>
             </div>
           </CardContent>
@@ -687,13 +687,13 @@ export function NotificationsPage() {
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'unread')}>
               <TabsList>
                 <TabsTrigger value="all">
-                  Toutes
+                  All
                   <Badge variant="secondary" className="ml-2">
                     {notifications.length}
                   </Badge>
                 </TabsTrigger>
                 <TabsTrigger value="unread">
-                  Non lues
+                  Unread
                   {unreadCount > 0 && (
                     <Badge variant="destructive" className="ml-2">
                       {unreadCount}
@@ -707,14 +707,14 @@ export function NotificationsPage() {
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-40">
                   <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Filtrer" />
+                  <SelectValue placeholder="Filter" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tous les types</SelectItem>
-                  <SelectItem value="appointments">Rendez-vous</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="appointments">Appointments</SelectItem>
                   <SelectItem value="messages">Messages</SelectItem>
-                  <SelectItem value="reviews">Avis</SelectItem>
-                  <SelectItem value="system">Système</SelectItem>
+                  <SelectItem value="reviews">Reviews</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -730,7 +730,7 @@ export function NotificationsPage() {
                     disabled={unreadCount === 0 || isMarkingAllAsRead}
                   >
                     <CheckCheck className="mr-2 h-4 w-4" />
-                    Tout marquer comme lu
+                    Mark All as Read
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -743,11 +743,11 @@ export function NotificationsPage() {
             <div className="p-8">
               <EmptyState
                 icon={<BellOff className="h-12 w-12" />}
-                title={activeTab === 'unread' ? 'Aucune notification non lue' : 'Aucune notification'}
+                title={activeTab === 'unread' ? 'No Unread Notifications' : 'No Notifications'}
                 description={
                   activeTab === 'unread'
-                    ? 'Vous êtes à jour ! Toutes vos notifications ont été lues.'
-                    : "Vous n'avez pas encore reçu de notification."
+                    ? "You're all caught up! All your notifications have been read."
+                    : "You haven't received any notifications yet."
                 }
               />
             </div>
@@ -783,19 +783,19 @@ export function NotificationsPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la notification ?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Notification?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. La notification sera définitivement supprimée.
+              This action is irreversible. The notification will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground"
               disabled={isDeleting}
             >
-              {isDeleting ? 'Suppression...' : 'Supprimer'}
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

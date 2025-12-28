@@ -1,12 +1,19 @@
 /**
- * Page de recherche de prestataires
+ * SearchPage Component
  * 
- * Affiche les résultats de recherche avec filtres et pagination.
+ * Service provider search with filters and pagination.
+ * Features:
+ * - Text search
+ * - Category filters
+ * - Grid/List view toggle
+ * - Pagination
+ * - Loading states
+ * - Empty/error states
  */
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search as SearchIcon, Grid, List, SlidersHorizontal } from 'lucide-react';
+import { Search as SearchIcon, Grid, List, SlidersHorizontal, Loader2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { useSearchPrestataires } from '@/hooks/usePrestataires';
@@ -17,13 +24,13 @@ import { PrestataireCard, FilterPanel } from '@/components/features/search';
 import type { SearchFilters } from '@/types';
 
 // ==========================================
-// COMPOSANT
+// COMPONENT
 // ==========================================
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // État des filtres
+  // Filter state
   const [filters, setFilters] = useState<SearchFilters>({
     query: searchParams.get('q') || undefined,
     categories: searchParams.get('category') ? [searchParams.get('category')!] : undefined,
@@ -31,14 +38,14 @@ export function SearchPage() {
     limit: 12,
   });
   
-  // État de l'affichage
+  // UI state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchInput, setSearchInput] = useState(filters.query || '');
 
-  // Query
+  // Fetch data
   const { data, isLoading, error, refetch } = useSearchPrestataires(filters);
 
-  // Synchroniser les filtres avec l'URL
+  // Sync filters with URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (filters.query) params.set('q', filters.query);
@@ -47,24 +54,24 @@ export function SearchPage() {
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
 
-  // Gérer la recherche
+  // Handle search submit
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setFilters((prev) => ({ ...prev, query: searchInput || undefined, page: 1 }));
   };
 
-  // Gérer les changements de filtres
+  // Handle filter changes
   const handleFiltersChange = (newFilters: SearchFilters) => {
     setFilters((prev) => ({ ...prev, ...newFilters, page: 1 }));
   };
 
-  // Gérer la pagination
+  // Handle pagination
   const handlePageChange = (page: number) => {
     setFilters((prev) => ({ ...prev, page }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Calculer les filtres actifs
+  // Calculate active filters count
   const activeFiltersCount =
     (filters.categories?.length || 0) +
     (filters.badges?.length || 0) +
@@ -73,51 +80,50 @@ export function SearchPage() {
 
   const results = data?.data || [];
   const meta = data?.meta;
-  // console.log(`resulta SearchPage ${JSON.stringify(results)} et ${meta}`)
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header de recherche */}
+      {/* Search header */}
       <div className="bg-mint border-b">
         <div className="container px-4 py-8">
           <h1 className="text-3xl font-bold text-charcoal mb-4">
-            Trouver un prestataire
+            Find a Service Provider
           </h1>
           
-          {/* Barre de recherche */}
+          {/* Search bar */}
           <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
             <div className="relative flex-1">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Rechercher par nom, service, ville..."
+                placeholder="Search by name, service, city..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-10 h-12 text-lg"
               />
             </div>
             <Button type="submit" size="lg">
-              Rechercher
+              Search
             </Button>
           </form>
         </div>
       </div>
 
-      {/* Contenu principal */}
+      {/* Main content */}
       <div className="container px-4 py-8">
         <div className="flex gap-8">
-          {/* Filtres (sidebar desktop) */}
+          {/* Filter sidebar (desktop) */}
           <FilterPanel
             filters={filters}
             onFiltersChange={handleFiltersChange}
           />
 
-          {/* Résultats */}
+          {/* Results */}
           <div className="flex-1">
-            {/* Barre d'outils */}
+            {/* Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-4">
-                {/* Filtres mobile */}
+                {/* Mobile filter button */}
                 <div className="lg:hidden">
                   <FilterPanel
                     filters={filters}
@@ -125,21 +131,21 @@ export function SearchPage() {
                   />
                 </div>
 
-                {/* Compteur de résultats */}
+                {/* Results count */}
                 {meta && (
                   <p className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{meta.total}</span> résultats
+                    <span className="font-medium text-foreground">{meta.total}</span> result{meta.total !== 1 ? 's' : ''}
                     {filters.query && (
-                      <> pour "<span className="font-medium">{filters.query}</span>"</>
+                      <> for "<span className="font-medium">{filters.query}</span>"</>
                     )}
                   </p>
                 )}
 
-                {/* Tags de filtres actifs */}
+                {/* Active filter tags */}
                 {activeFiltersCount > 0 && (
                   <div className="hidden sm:flex items-center gap-2">
                     {filters.categories?.map((cat) => (
-                      <Badge key={cat} variant="secondary">
+                      <Badge key={cat} variant="secondary" className="gap-1">
                         {cat}
                         <button
                           onClick={() =>
@@ -149,21 +155,32 @@ export function SearchPage() {
                             })
                           }
                           className="ml-1 hover:text-destructive"
+                          aria-label={`Remove ${cat} filter`}
                         >
                           ×
                         </button>
                       </Badge>
                     ))}
+                    
+                    {activeFiltersCount > (filters.categories?.length || 0) && (
+                      <button
+                        onClick={() => setFilters({ page: 1, limit: 12 })}
+                        className="text-xs text-muted-foreground hover:text-foreground underline"
+                      >
+                        Clear all
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Options d'affichage */}
+              {/* View toggle */}
               <div className="flex items-center gap-2">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
                   size="icon"
                   onClick={() => setViewMode('grid')}
+                  aria-label="Grid view"
                 >
                   <Grid className="h-4 w-4" />
                 </Button>
@@ -171,6 +188,7 @@ export function SearchPage() {
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="icon"
                   onClick={() => setViewMode('list')}
+                  aria-label="List view"
                 >
                   <List className="h-4 w-4" />
                 </Button>
@@ -179,28 +197,35 @@ export function SearchPage() {
 
             <Separator className="mb-6" />
 
-            {/* États */}
-            {isLoading && <LoadingState message="Recherche en cours..." />}
+            {/* Loading state */}
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">Searching...</p>
+              </div>
+            )}
 
+            {/* Error state */}
             {error && (
               <ErrorState
-                title="Erreur de recherche"
-                message="Impossible de charger les résultats. Veuillez réessayer."
+                title="Search Failed"
+                message="Unable to load results. Please try again."
                 onRetry={() => refetch()}
               />
             )}
 
+            {/* Empty state */}
             {!isLoading && !error && results.length === 0 && (
               <EmptyState
                 icon={SearchIcon}
-                title="Aucun résultat"
-                description="Essayez de modifier vos critères de recherche ou explorez nos catégories."
-                actionLabel="Réinitialiser les filtres"
+                title="No Results Found"
+                description="Try adjusting your search criteria or browse our categories."
+                actionLabel="Reset Filters"
                 onAction={() => setFilters({ page: 1, limit: 12 })}
               />
             )}
 
-            {/* Grille de résultats */}
+            {/* Results grid */}
             {!isLoading && !error && results.length > 0 && (
               <>
                 <div
@@ -227,7 +252,7 @@ export function SearchPage() {
                       disabled={meta.page === 1}
                       onClick={() => handlePageChange(meta.page - 1)}
                     >
-                      Précédent
+                      Previous
                     </Button>
                     
                     <div className="flex items-center gap-1">
@@ -249,6 +274,8 @@ export function SearchPage() {
                             variant={page === meta.page ? 'default' : 'ghost'}
                             size="icon"
                             onClick={() => handlePageChange(page)}
+                            aria-label={`Page ${page}`}
+                            aria-current={page === meta.page ? 'page' : undefined}
                           >
                             {page}
                           </Button>
@@ -261,7 +288,7 @@ export function SearchPage() {
                       disabled={meta.page === meta.totalPages}
                       onClick={() => handlePageChange(meta.page + 1)}
                     >
-                      Suivant
+                      Next
                     </Button>
                   </div>
                 )}

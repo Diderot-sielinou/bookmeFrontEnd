@@ -1,10 +1,10 @@
 /**
- * Page Dashboard Prestataire - ALIGNÉE AVEC BACKEND
+ * Provider Dashboard Page - ALIGNED WITH BACKEND
  */
 
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { useQuery } from '@tanstack/react-query';
 import {
   Calendar,
@@ -42,14 +42,14 @@ import { StatCard } from "@/components/features/dashboard";
 import { EmptyState } from "@/components/shared";
 
 // ==========================================
-// COMPOSANT
+// COMPONENT
 // ==========================================
 
 export function PrestataireDashboardPage() {
   const { profile } = useAuth();
   const { data: todayAppointments, isLoading: isLoadingAppointments } = useTodayAppointments();
   
-  // ✅ NOUVEAU : Récupère les stats du backend
+  // ✅ FETCH: Get stats from backend
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: queryKeys.dashboard.stats(),
     queryFn: dashboardService.getStats,
@@ -68,7 +68,7 @@ export function PrestataireDashboardPage() {
     prestataireProfile?.businessName ||
     `${prestataireProfile?.firstName} ${prestataireProfile?.lastName}`;
 
-  // ✅ Utilise les vraies stats du backend
+  // ✅ Use real stats from backend
   const isLoading = isLoadingAppointments || isLoadingStats;
 
   return (
@@ -77,51 +77,51 @@ export function PrestataireDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
-            Bonjour {prestataireProfile?.firstName} 👋
+            Hello {prestataireProfile?.firstName} 👋
           </h1>
           <p className="text-muted-foreground mt-1">
             {displayName} •{" "}
-            {format(new Date(), "EEEE d MMMM yyyy", { locale: fr })}
+            {format(new Date(), "EEEE, MMMM d, yyyy", { locale: enUS })}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to={ROUTES.PRESTATAIRE_SLOTS}>
               <Clock className="mr-2 h-4 w-4" />
-              Gérer mes créneaux
+              Manage Time Slots
             </Link>
           </Button>
           <Button asChild>
-            <Link to={ROUTES.PRESTATAIRE_PROFILE}>Voir mon profil</Link>
+            <Link to={ROUTES.PRESTATAIRE_PROFILE}>View My Profile</Link>
           </Button>
         </div>
       </div>
 
-      {/* Statistiques */}
+      {/* Statistics */}
       {isLoading ? (
         <SkeletonStats />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="RDV à venir"
+            label="Upcoming Appointments"
             value={stats?.upcomingAppointments || 0}
             icon={Calendar}
             iconColor="cyan"
           />
           <StatCard
-            label="Revenus totaux"
+            label="Total Revenue"
             value={formatPrice(stats?.totalRevenue || 0)}
             icon={Euro}
             iconColor="green"
           />
           <StatCard
-            label="RDV terminés"
+            label="Completed Appointments"
             value={stats?.completedAppointments || 0}
             icon={Users}
             iconColor="teal"
           />
           <StatCard
-            label="Note moyenne"
+            label="Average Rating"
             value={Number(stats?.averageRating ?? 0).toFixed(1)}
             icon={Star}
             iconColor="amber"
@@ -130,13 +130,13 @@ export function PrestataireDashboardPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Rendez-vous du jour */}
+        {/* Today's Appointments */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-xl">Rendez-vous du jour</CardTitle>
+            <CardTitle className="text-xl">Today's Appointments</CardTitle>
             <Button variant="ghost" size="sm" asChild>
               <Link to={ROUTES.PRESTATAIRE_APPOINTMENTS}>
-                Voir tout <ArrowRight className="ml-1 h-4 w-4" />
+                View All <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
           </CardHeader>
@@ -153,8 +153,8 @@ export function PrestataireDashboardPage() {
               (!todayAppointments || todayAppointments.length === 0) && (
                 <EmptyState
                   icon={Calendar}
-                  title="Aucun rendez-vous aujourd'hui"
-                  description="Profitez de ce temps libre pour mettre à jour votre profil !"
+                  title="No appointments today"
+                  description="Take this time to update your profile!"
                 />
               )}
 
@@ -201,10 +201,10 @@ export function PrestataireDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Actions rapides */}
+        {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">Actions rapides</CardTitle>
+            <CardTitle className="text-xl">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Link
@@ -215,9 +215,9 @@ export function PrestataireDashboardPage() {
                 <Clock className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <p className="font-medium">Ajouter des créneaux</p>
+                <p className="font-medium">Add Time Slots</p>
                 <p className="text-sm text-muted-foreground">
-                  Gérez vos disponibilités
+                  Manage your availability
                 </p>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
@@ -231,9 +231,9 @@ export function PrestataireDashboardPage() {
                 <CheckCircle className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <p className="font-medium">Gérer mes services</p>
+                <p className="font-medium">Manage Services</p>
                 <p className="text-sm text-muted-foreground">
-                  Ajoutez ou modifiez vos prestations
+                  Add or edit your services
                 </p>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
@@ -247,9 +247,9 @@ export function PrestataireDashboardPage() {
                 <Star className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <p className="font-medium">Voir mes avis</p>
+                <p className="font-medium">View Reviews</p>
                 <p className="text-sm text-muted-foreground">
-                  Consultez et répondez aux avis
+                  View and respond to reviews
                 </p>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
@@ -265,7 +265,7 @@ export function PrestataireDashboardPage() {
               <div className="flex-1">
                 <p className="font-medium">Messages</p>
                 <p className="text-sm text-muted-foreground">
-                  Communiquez avec vos clients
+                  Communicate with your clients
                 </p>
               </div>
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
@@ -274,18 +274,18 @@ export function PrestataireDashboardPage() {
         </Card>
       </div>
 
-      {/* Alerte statut */}
+      {/* Status Alert */}
       {prestataireProfile?.status === "PENDING" && (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-6 flex items-start gap-4">
             <AlertCircle className="h-6 w-6 text-amber-600 shrink-0" />
             <div>
               <h3 className="font-semibold text-amber-800">
-                Compte en attente de validation
+                Account Pending Validation
               </h3>
               <p className="text-sm text-amber-700 mt-1">
-                Votre profil est en cours de vérification par notre équipe.
-                Vous recevrez un email dès que votre compte sera activé.
+                Your profile is being verified by our team.
+                You will receive an email once your account is activated.
               </p>
             </div>
           </CardContent>

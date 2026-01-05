@@ -1,8 +1,9 @@
 /**
- * Hook useNotifications
+ * Hook useNotifications - CORRIGÉ
  * 
- * Gestion des notifications avec React Query et Zustand.
- * Combine les données serveur avec les mises à jour temps réel.
+ * Fichier: src/hooks/useNotifications.ts
+ * 
+ * CORRECTION: Ajout de `enabled` pour ne pas faire de requêtes si non authentifié
  */
 
 import { useEffect } from 'react';
@@ -10,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import * as notificationsService from '@/services/notifications.service';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useAuthStore } from '@/stores/authStore';
 import { queryKeys } from '@/lib/queryClient';
 import { showError } from '@/components/ui/toast';
 import { getErrorMessage } from '@/lib/api';
@@ -27,9 +29,15 @@ export function useNotificationsQuery(options?: {
   page?: number;
   limit?: number;
 }) {
+  // ✅ CORRECTION: Vérifier l'authentification
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isInitialized = useAuthStore((s) => s.isInitialized);
+
   return useQuery({
     queryKey: queryKeys.notifications.list(options),
     queryFn: () => notificationsService.getNotifications(options),
+    // ✅ Ne faire la requête que si authentifié
+    enabled: isAuthenticated && isInitialized,
   });
 }
 
@@ -37,11 +45,17 @@ export function useNotificationsQuery(options?: {
  * Récupère le compteur de notifications non lues
  */
 export function useUnreadCountQuery() {
+  // ✅ CORRECTION: Vérifier l'authentification
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isInitialized = useAuthStore((s) => s.isInitialized);
+
   return useQuery({
     queryKey: queryKeys.notifications.unreadCount(),
     queryFn: notificationsService.getUnreadCount,
+    // ✅ Ne faire la requête que si authentifié
+    enabled: isAuthenticated && isInitialized,
     // Rafraîchir régulièrement
-    refetchInterval: 60 * 1000, // 1 minute
+    refetchInterval: isAuthenticated ? 60 * 1000 : false, // 1 minute, seulement si authentifié
   });
 }
 
@@ -68,7 +82,6 @@ export function useMarkAsRead() {
     },
     onError: (error) => {
       showError(getErrorMessage(error));
-      // TODO: Rollback optimistic update
     },
   });
 }
@@ -104,14 +117,12 @@ export function useMarkAllAsRead() {
 
 /**
  * Hook principal pour les notifications
- * 
- * Combine :
- * - Les données du store Zustand (temps réel)
- * - Les queries React Query (persistance)
- * - Les mutations pour les actions
  */
 export function useNotifications() {
   const queryClient = useQueryClient();
+  
+  // ✅ CORRECTION: Vérifier l'authentification
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Store Zustand
   const {
@@ -123,7 +134,7 @@ export function useNotifications() {
     clearNotifications,
   } = useNotificationStore();
 
-  // Queries
+  // Queries (seront désactivées si non authentifié grâce à `enabled`)
   const notificationsQuery = useNotificationsQuery({ limit: 20 });
   const unreadQuery = useUnreadCountQuery();
 
@@ -135,12 +146,9 @@ export function useNotifications() {
   useEffect(() => {
     if (notificationsQuery.data) {
       // Le store sera mis à jour par WebSocket
-      // Les queries servent de fallback
     }
   }, [notificationsQuery.data]);
 
-  // Utiliser les données du store en priorité (temps réel)
-  // Fallback sur les queries si le store est vide
   const notifications =
     storeNotifications.length > 0
       ? storeNotifications
@@ -162,9 +170,12 @@ export function useNotifications() {
     markAsRead: markAsReadMutation.mutate,
     markAllAsRead: markAllAsReadMutation.mutate,
     refresh: () => {
-      fetchNotifications();
-      fetchUnreadCount();
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+      // ✅ Ne rafraîchir que si authentifié
+      if (isAuthenticated) {
+        fetchNotifications();
+        fetchUnreadCount();
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+      }
     },
     clear: clearNotifications,
 
@@ -179,8 +190,19 @@ export function useNotifications() {
  * Version légère qui ne charge que le compteur
  */
 export function useNotificationBadge() {
+  // ✅ CORRECTION: Vérifier l'authentification
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  
   const unreadCount = useNotificationStore((state) => state.unreadCount);
-  const unreadQuery = useUnreadCountQuery();
+  const unreadQuery = useUnreadCountQuery(); // Cette query est maintenant protégée
+
+  // ✅ Retourner 0 si non authentifié
+  if (!isAuthenticated) {
+    return {
+      count: 0,
+      hasUnread: false,
+    };
+  }
 
   return {
     count: unreadCount || unreadQuery.data || 0,

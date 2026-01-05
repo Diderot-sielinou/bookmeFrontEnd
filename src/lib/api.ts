@@ -1,11 +1,12 @@
 /**
- * Axios API Client with Automatic JWT Token Management
- *
- * This module configures axios with:
- * - Automatic access token injection in headers
- * - Automatic token refresh on expiry (401)
- * - Centralized error handling
- * - Automatic retry after token refresh
+ * Axios API Client - VERSION CORRIGÉE
+ * 
+ * Fichier: src/lib/api.ts
+ * 
+ * CORRECTION MAJEURE:
+ * - Suppression des redirections automatiques vers /login
+ * - Les composants React gèrent la redirection via les Route Guards
+ * - L'intercepteur ne fait que rejeter l'erreur
  */
 
 import axios, { AxiosError } from "axios";
@@ -13,20 +14,28 @@ import type { InternalAxiosRequestConfig } from "axios";
 import qs from 'qs';
 
 // ==========================================
+// DEBUG
+// ==========================================
+const DEBUG_API = true;
+
+function debugLog(action: string, data?: any) {
+  if (DEBUG_API) {
+    console.log(`[API:${action}]`, data || '');
+  }
+}
+
+// ==========================================
 // BASE CONFIGURATION
 // ==========================================
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-/**
- * Axios instance configured for BookMe API
- */
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 30000, // 30 seconds
+  timeout: 30000,
   paramsSerializer: (params) => {
     return qs.stringify(params, { arrayFormat: 'repeat' });
   },
@@ -39,56 +48,60 @@ export const api = axios.create({
 const TOKEN_KEY = "bookme_access_token";
 const REFRESH_TOKEN_KEY = "bookme_refresh_token";
 
-/**
- * Gets access token from localStorage
- */
 export const getAccessToken = (): string | null => {
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  // Retourner null si le token est invalide
+  if (!token || token === "undefined" || token === "null" || token === "") {
+    return null;
+  }
+  return token;
 };
 
-/**
- * Gets refresh token from localStorage
- */
 export const getRefreshToken = (): string | null => {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  const token = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!token || token === "undefined" || token === "null" || token === "") {
+    return null;
+  }
+  return token;
 };
 
-/**
- * Saves tokens to localStorage
- */
 export const setTokens = (accessToken: string, refreshToken: string): void => {
-  localStorage.setItem(TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  if (accessToken && accessToken !== "undefined") {
+    localStorage.setItem(TOKEN_KEY, accessToken);
+  }
+  if (refreshToken && refreshToken !== "undefined") {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  }
+  debugLog('setTokens', 'Tokens sauvegardés');
 };
 
-/**
- * Removes tokens (logout)
- */
 export const clearTokens = (): void => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  debugLog('clearTokens', 'Tokens supprimés');
 };
 
-/**
- * Checks if user is authenticated (has a token)
- */
 export const isAuthenticated = (): boolean => {
   return !!getAccessToken();
 };
 
 // ==========================================
 // REQUEST INTERCEPTOR
-// Automatically adds token to headers
 // ==========================================
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
 
-    // Add authentication token if available
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    debugLog('request', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      hasToken: !!token,
+    });
 
     return config;
   },
@@ -98,27 +111,15 @@ api.interceptors.request.use(
 );
 
 // ==========================================
-// RESPONSE INTERCEPTOR
-// Handles automatic token refresh and errors
+// RESPONSE INTERCEPTOR - CORRIGÉ
 // ==========================================
 
-/**
- * Variable to prevent multiple refresh calls
- * while a refresh is in progress
- */
 let isRefreshing = false;
-
-/**
- * Queue of requests waiting during refresh
- */
 let failedQueue: Array<{
   resolve: (token: string) => void;
   reject: (error: Error) => void;
 }> = [];
 
-/**
- * Processes queue after successful or failed refresh
- */
 const processQueue = (
   error: Error | null,
   token: string | null = null
@@ -134,37 +135,52 @@ const processQueue = (
 };
 
 api.interceptors.response.use(
-  // Success case: return response as is
-  (response) => response,
+  (response) => {
+    debugLog('response:success', {
+      url: response.config.url,
+      status: response.status,
+    });
+    return response;
+  },
 
-  // Error case: handle token refresh on 401
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
 
-    // Check if it's a 401 error and not already a retry
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      const refreshToken = getRefreshToken();
+    debugLog('response:error', {
+      url: originalRequest?.url,
+      status: error.response?.status,
+      message: error.message,
+    });
 
-      // If no valid refresh token, don't attempt refresh
-      if (!refreshToken || refreshToken === "undefined") {
-        console.warn("No valid refresh token found. Redirecting to login.");
-        clearTokens();
-        if (typeof window !== "undefined") window.location.href = "/login";
-        return Promise.reject(error);
-      }
-
-      // Don't attempt refresh for login or refresh routes
+    // Gérer les erreurs 401
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      
+      // Ne PAS tenter de refresh pour les routes d'auth
       if (
         originalRequest.url?.includes("/auth/login") ||
-        originalRequest.url?.includes("/auth/refresh")
+        originalRequest.url?.includes("/auth/refresh") ||
+        originalRequest.url?.includes("/auth/register")
       ) {
+        debugLog('401:skip', 'Route auth, pas de refresh');
         return Promise.reject(error);
       }
 
-      // If refresh is already in progress, queue the request
+      const refreshToken = getRefreshToken();
+
+      // ✅ CORRECTION: Pas de refresh token = juste rejeter l'erreur
+      // NE PAS REDIRIGER - laisser React gérer ça
+      if (!refreshToken) {
+        debugLog('401:noRefreshToken', 'Pas de refresh token, rejet simple');
+        clearTokens();
+        // ❌ SUPPRIMÉ: window.location.href = "/login";
+        return Promise.reject(error);
+      }
+
+      // Si refresh déjà en cours, mettre en queue
       if (isRefreshing) {
+        debugLog('401:queued', 'Refresh en cours, mise en queue');
         return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -177,39 +193,38 @@ api.interceptors.response.use(
           .catch((err) => Promise.reject(err));
       }
 
-      // Mark as retry to avoid infinite loops
       originalRequest._retry = true;
       isRefreshing = true;
 
       try {
-        // Attempt to refresh the token
+        debugLog('401:refreshing', 'Tentative de refresh...');
+        
         const response = await axios.post(`${API_URL}/auth/refresh`, {
           refreshToken,
         });
 
         const { accessToken, refreshToken: newRefreshToken } = response.data;
 
-        // Save new tokens
         setTokens(accessToken, newRefreshToken);
-
-        // Process queue with new token
         processQueue(null, accessToken);
 
-        // Retry original request with new token
+        debugLog('401:refreshSuccess', 'Token rafraîchi avec succès');
+
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         }
 
         return api(originalRequest);
+
       } catch (refreshError) {
-        // Refresh failed, log out user
+        debugLog('401:refreshFailed', 'Échec du refresh');
+        
         processQueue(refreshError as Error, null);
         clearTokens();
         
-        // Only redirect if we're in a browser environment
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
-        }
+        // ✅ CORRECTION: NE PAS REDIRIGER
+        // Laisser les composants React (ProtectedRoute) gérer la redirection
+        // ❌ SUPPRIMÉ: window.location.href = "/login";
         
         return Promise.reject(refreshError);
       } finally {
@@ -217,27 +232,21 @@ api.interceptors.response.use(
       }
     }
 
-    // For other errors, propagate them
     return Promise.reject(error);
   }
 );
 
 // ==========================================
-// API ERROR HELPERS
+// ERROR HELPERS (inchangé)
 // ==========================================
 
-/**
- * Extracts error message from API response
- */
 export const getErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
-    // Error with server response
     if (error.response?.data?.message) {
       const message = error.response.data.message;
       return Array.isArray(message) ? message[0] : message;
     }
     
-    // Network error
     if (error.code === "ECONNABORTED") {
       return "Request timed out. Please try again.";
     }
@@ -250,33 +259,21 @@ export const getErrorMessage = (error: unknown): string => {
       return "Unable to reach the server. Please check your connection.";
     }
     
-    // HTTP status errors
     switch (error.response.status) {
-      case 400:
-        return "Invalid request. Please check your input.";
-      case 401:
-        return "Authentication required. Please sign in.";
-      case 403:
-        return "Access denied. You don't have permission.";
-      case 404:
-        return "Resource not found.";
-      case 409:
-        return "Conflict. This resource already exists.";
-      case 422:
-        return "Validation error. Please check your input.";
-      case 429:
-        return "Too many requests. Please try again later.";
-      case 500:
-        return "Server error. Please try again later.";
+      case 400: return "Invalid request. Please check your input.";
+      case 401: return "Authentication required. Please sign in.";
+      case 403: return "Access denied. You don't have permission.";
+      case 404: return "Resource not found.";
+      case 409: return "Conflict. This resource already exists.";
+      case 422: return "Validation error. Please check your input.";
+      case 429: return "Too many requests. Please try again later.";
+      case 500: return "Server error. Please try again later.";
       case 502:
-      case 503:
-        return "Service temporarily unavailable. Please try again.";
-      default:
-        return "An unexpected error occurred.";
+      case 503: return "Service temporarily unavailable. Please try again.";
+      default: return "An unexpected error occurred.";
     }
   }
 
-  // Generic error
   if (error instanceof Error) {
     return error.message;
   }
@@ -284,53 +281,32 @@ export const getErrorMessage = (error: unknown): string => {
   return "An unexpected error occurred.";
 };
 
-/**
- * Checks if error is a validation error (400/422)
- */
 export const isValidationError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && 
     (error.response?.status === 400 || error.response?.status === 422);
 };
 
-/**
- * Checks if error is an authentication error (401)
- */
 export const isAuthError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && error.response?.status === 401;
 };
 
-/**
- * Checks if error is a permission error (403)
- */
 export const isForbiddenError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && error.response?.status === 403;
 };
 
-/**
- * Checks if error is a "not found" error (404)
- */
 export const isNotFoundError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && error.response?.status === 404;
 };
 
-/**
- * Checks if error is a conflict error (409)
- */
 export const isConflictError = (error: unknown): boolean => {
   return axios.isAxiosError(error) && error.response?.status === 409;
 };
 
-/**
- * Checks if error is a network error
- */
 export const isNetworkError = (error: unknown): boolean => {
   if (!axios.isAxiosError(error)) return false;
   return error.code === "ERR_NETWORK" || !error.response;
 };
 
-/**
- * Extracts validation errors by field from API response
- */
 export const getValidationErrors = (error: unknown): Record<string, string> | null => {
   if (!axios.isAxiosError(error)) return null;
   

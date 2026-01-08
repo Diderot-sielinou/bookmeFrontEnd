@@ -12,9 +12,9 @@
  * - Emotional final CTA
  */
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Calendar,
@@ -41,10 +41,10 @@ import {
   Stethoscope,
   Camera,
   Palette,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { ROUTES, PROFESSIONAL_CATEGORIES } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { ROUTES, PROFESSIONAL_CATEGORIES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import {
   Button,
   Card,
@@ -56,7 +56,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@/components/ui';
+} from "@/components/ui";
 
 // ==========================================
 // STATIC DATA
@@ -65,139 +65,147 @@ import {
 const benefits = [
   {
     icon: MessageSquare,
-    title: 'Instant Messaging',
-    description: 'Chat directly with providers before booking. Ask questions, discuss your needs, get answers instantly.',
+    title: "Instant Messaging",
+    description:
+      "Chat directly with providers before booking. Ask questions, discuss your needs, get answers instantly.",
     highlight: true,
-    color: 'cyan',
+    color: "cyan",
   },
   {
     icon: Zap,
-    title: 'Free Forever',
-    description: 'No subscription, no commission, no hidden fees. 100% free for clients and providers.',
+    title: "Free Forever",
+    description:
+      "No subscription, no commission, no hidden fees. 100% free for clients and providers.",
     highlight: true,
-    color: 'green',
-    comparison: { bookme: '$0', others: '$29/mo' },
+    color: "green",
+    comparison: { bookme: "$0", others: "$29/mo" },
   },
   {
     icon: Bell,
-    title: 'Smart Reminders',
-    description: 'Automatic notifications 24h and 1h before your appointment. Never miss a booking again.',
-    color: 'amber',
+    title: "Smart Reminders",
+    description:
+      "Automatic notifications 24h and 1h before your appointment. Never miss a booking again.",
+    color: "amber",
   },
   {
     icon: Shield,
-    title: 'Verified Reviews',
-    description: 'Quality, punctuality, cleanliness — real ratings from real customers help you choose.',
-    color: 'purple',
+    title: "Verified Reviews",
+    description:
+      "Quality, punctuality, cleanliness — real ratings from real customers help you choose.",
+    color: "purple",
   },
   {
     icon: Clock,
-    title: 'Real-Time Availability',
-    description: 'See live schedules, book instantly. Confirmation in seconds, not days.',
-    color: 'teal',
+    title: "Real-Time Availability",
+    description:
+      "See live schedules, book instantly. Confirmation in seconds, not days.",
+    color: "teal",
   },
 ];
 
 const categoryGroups = {
-  'Beauty & Wellness': [
-    { name: 'Hair Salon', icon: Scissors, count: 234 },
-    { name: 'Nail Salon', icon: Sparkles, count: 189 },
-    { name: 'Massage', icon: Heart, count: 156 },
-    { name: 'Spa & Beauty', icon: Sparkles, count: 143 },
+  "Beauty & Wellness": [
+    { name: "Hair Salon", icon: Scissors, count: 234 },
+    { name: "Nail Salon", icon: Sparkles, count: 189 },
+    { name: "Massage", icon: Heart, count: 156 },
+    { name: "Spa & Beauty", icon: Sparkles, count: 143 },
   ],
-  'Health': [
-    { name: 'Physiotherapy', icon: Stethoscope, count: 98 },
-    { name: 'Osteopath', icon: Heart, count: 76 },
-    { name: 'Psychologist', icon: Heart, count: 112 },
-    { name: 'Nutritionist', icon: Heart, count: 67 },
+  Health: [
+    { name: "Physiotherapy", icon: Stethoscope, count: 98 },
+    { name: "Osteopath", icon: Heart, count: 76 },
+    { name: "Psychologist", icon: Heart, count: 112 },
+    { name: "Nutritionist", icon: Heart, count: 67 },
   ],
-  'Business': [
-    { name: 'Business Coach', icon: Briefcase, count: 89 },
-    { name: 'Consultant', icon: TrendingUp, count: 134 },
-    { name: 'Accountant', icon: Briefcase, count: 56 },
-    { name: 'Lawyer', icon: Shield, count: 45 },
+  Business: [
+    { name: "Business Coach", icon: Briefcase, count: 89 },
+    { name: "Consultant", icon: TrendingUp, count: 134 },
+    { name: "Accountant", icon: Briefcase, count: 56 },
+    { name: "Lawyer", icon: Shield, count: 45 },
   ],
-  'Sport & Fitness': [
-    { name: 'Personal Trainer', icon: Dumbbell, count: 167 },
-    { name: 'Yoga Instructor', icon: Heart, count: 98 },
-    { name: 'Sports Coach', icon: Dumbbell, count: 76 },
-    { name: 'Pilates', icon: Heart, count: 54 },
+  "Sport & Fitness": [
+    { name: "Personal Trainer", icon: Dumbbell, count: 167 },
+    { name: "Yoga Instructor", icon: Heart, count: 98 },
+    { name: "Sports Coach", icon: Dumbbell, count: 76 },
+    { name: "Pilates", icon: Heart, count: 54 },
   ],
-  'Education': [
-    { name: 'Private Tutor', icon: GraduationCap, count: 213 },
-    { name: 'Language Teacher', icon: GraduationCap, count: 156 },
-    { name: 'Music Teacher', icon: Palette, count: 89 },
-    { name: 'Art Teacher', icon: Palette, count: 67 },
+  Education: [
+    { name: "Private Tutor", icon: GraduationCap, count: 213 },
+    { name: "Language Teacher", icon: GraduationCap, count: 156 },
+    { name: "Music Teacher", icon: Palette, count: 89 },
+    { name: "Art Teacher", icon: Palette, count: 67 },
   ],
 };
 
 const featuredProviders = [
   {
-    id: '1',
-    name: 'Marie Dupont',
-    businessName: 'Studio Marie Coiffure',
-    category: 'Hair Salon',
-    location: 'Paris 11th',
+    id: "1",
+    name: "Marie Dupont",
+    businessName: "Studio Marie Coiffure",
+    category: "Hair Salon",
+    location: "Paris 11th",
     rating: 4.9,
     reviewCount: 127,
     avatar: null,
-    badges: ['Top Provider', 'Quick Response'],
-    testimonial: 'Professional and attentive, I highly recommend!',
+    badges: ["Top Provider", "Quick Response"],
+    testimonial: "Professional and attentive, I highly recommend!",
   },
   {
-    id: '2',
-    name: 'Thomas Bernard',
-    businessName: 'TB Business Coaching',
-    category: 'Business Coach',
-    location: 'Lyon',
+    id: "2",
+    name: "Thomas Bernard",
+    businessName: "TB Business Coaching",
+    category: "Business Coach",
+    location: "Lyon",
     rating: 5.0,
     reviewCount: 89,
     avatar: null,
-    badges: ['Top Provider'],
-    testimonial: 'His advice transformed my business approach.',
+    badges: ["Top Provider"],
+    testimonial: "His advice transformed my business approach.",
   },
   {
-    id: '3',
-    name: 'Sophie Martin',
-    businessName: 'Zen Massage Paris',
-    category: 'Massage Therapist',
-    location: 'Paris 6th',
+    id: "3",
+    name: "Sophie Martin",
+    businessName: "Zen Massage Paris",
+    category: "Massage Therapist",
+    location: "Paris 6th",
     rating: 4.8,
     reviewCount: 203,
     avatar: null,
-    badges: ['Popular', 'Reliable'],
-    testimonial: 'The best massage I\'ve ever had. Truly relaxing.',
+    badges: ["Popular", "Reliable"],
+    testimonial: "The best massage I've ever had. Truly relaxing.",
   },
 ];
 
 const testimonials = [
   {
-    name: 'Emily Thompson',
+    name: "Emily Thompson",
     age: 34,
-    location: 'New York',
-    role: 'Client',
-    service: 'Osteopath',
-    content: 'The instant messaging feature let me ask questions before my appointment. I knew exactly what to expect and felt so much more comfortable.',
+    location: "New York",
+    role: "Client",
+    service: "Osteopath",
+    content:
+      "The instant messaging feature let me ask questions before my appointment. I knew exactly what to expect and felt so much more comfortable.",
     rating: 5,
     avatar: null,
   },
   {
-    name: 'James Wilson',
+    name: "James Wilson",
     age: 41,
-    location: 'Los Angeles',
-    role: 'Client',
-    service: 'Business Coach',
-    content: 'Found my business coach in 2 minutes, booked for the same week. The automatic reminders are a game-changer — I never miss appointments anymore.',
+    location: "Los Angeles",
+    role: "Client",
+    service: "Business Coach",
+    content:
+      "Found my business coach in 2 minutes, booked for the same week. The automatic reminders are a game-changer — I never miss appointments anymore.",
     rating: 5,
     avatar: null,
   },
   {
-    name: 'Sarah Chen',
+    name: "Sarah Chen",
     age: 28,
-    location: 'Chicago',
-    role: 'Provider',
-    service: 'Yoga Instructor',
-    content: 'I gained 15 new regular clients in just 2 months. The free platform means I keep 100% of my earnings. Best decision for my business!',
+    location: "Chicago",
+    role: "Provider",
+    service: "Yoga Instructor",
+    content:
+      "I gained 15 new regular clients in just 2 months. The free platform means I keep 100% of my earnings. Best decision for my business!",
     rating: 5,
     avatar: null,
   },
@@ -205,42 +213,50 @@ const testimonials = [
 
 const faqs = [
   {
-    question: 'Is BookMe really free?',
-    answer: 'Yes, 100% free for both clients AND providers. No subscription fees, no commission on bookings, no hidden charges. We believe quality appointment booking should be accessible to everyone.',
+    question: "Is BookMe really free?",
+    answer:
+      "Yes, 100% free for both clients AND providers. No subscription fees, no commission on bookings, no hidden charges. We believe quality appointment booking should be accessible to everyone.",
   },
   {
-    question: 'How does the messaging feature work?',
-    answer: 'Once you find a provider, you can send them a message directly through the platform before booking. Ask questions about their services, discuss your specific needs, or clarify any details. Providers typically respond within a few hours.',
+    question: "How does the messaging feature work?",
+    answer:
+      "The messaging feature becomes available after you book an appointment with a provider. This allows you to discuss your specific needs, ask questions, share relevant information, or clarify details before your appointment. Providers typically respond within a few hours. Your conversation history is saved for future reference.",
   },
   {
-    question: 'Can I cancel or reschedule an appointment?',
-    answer: 'Yes, you can cancel or reschedule directly from your dashboard. We recommend doing so at least 24 hours in advance as a courtesy to the provider. Some providers may have their own cancellation policies.',
+    question: "Can I cancel or reschedule an appointment?",
+    answer:
+      "Yes, you can cancel or reschedule directly from your dashboard. We recommend doing so at least 24 hours in advance as a courtesy to the provider. Some providers may have their own cancellation policies.",
   },
   {
-    question: 'How are providers verified?',
-    answer: 'All providers go through a verification process before their profile goes live. We verify their identity and professional credentials. Additionally, our review system with ratings on quality, punctuality, and cleanliness helps maintain high standards.',
+    question: "How are providers verified?",
+    answer:
+      "All providers go through a verification process before their profile goes live. We verify their identity and professional credentials. Additionally, our review system with ratings on quality, punctuality, and cleanliness helps maintain high standards.",
   },
   {
-    question: 'Is my personal data secure?',
-    answer: 'Absolutely. We use bank-level encryption to protect your data. Your personal information is never shared with third parties, and you control what\'s visible on your profile. We\'re fully GDPR compliant.',
+    question: "Is my personal data secure?",
+    answer:
+      "Absolutely. We use bank-level encryption to protect your data. Your personal information is never shared with third parties, and you control what's visible on your profile. We're fully GDPR compliant.",
   },
 ];
 
 const providerBenefits = [
   {
     icon: Calendar,
-    title: 'Smart Scheduling',
-    description: 'Manage your availability with an intuitive calendar. Set recurring slots, block time off, handle exceptions easily.',
+    title: "Smart Scheduling",
+    description:
+      "Manage your availability with an intuitive calendar. Set recurring slots, block time off, handle exceptions easily.",
   },
   {
     icon: MessageSquare,
-    title: 'Built-in Messaging',
-    description: 'Communicate with clients directly. Answer questions, send reminders, build relationships.',
+    title: "Built-in Messaging",
+    description:
+      "Communicate with clients directly. Answer questions, send reminders, build relationships.",
   },
   {
     icon: TrendingUp,
-    title: 'Growth Analytics',
-    description: 'Track your revenue, appointment trends, and client satisfaction. Make data-driven decisions.',
+    title: "Growth Analytics",
+    description:
+      "Track your revenue, appointment trends, and client satisfaction. Make data-driven decisions.",
   },
 ];
 
@@ -299,15 +315,15 @@ function BentoCard({
   benefit,
   index,
 }: {
-  benefit: typeof benefits[0];
+  benefit: (typeof benefits)[0];
   index: number;
 }) {
   const colorClasses = {
-    cyan: 'bg-cyan-100 text-cyan-600',
-    green: 'bg-green-100 text-green-600',
-    amber: 'bg-amber-100 text-amber-600',
-    purple: 'bg-purple-100 text-purple-600',
-    teal: 'bg-teal-100 text-teal-600',
+    cyan: "bg-cyan-100 text-cyan-600",
+    green: "bg-green-100 text-green-600",
+    amber: "bg-amber-100 text-amber-600",
+    purple: "bg-purple-100 text-purple-600",
+    teal: "bg-teal-100 text-teal-600",
   };
 
   return (
@@ -316,21 +332,19 @@ function BentoCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
-      className={cn(
-        'group relative',
-        benefit.highlight && 'md:col-span-1'
-      )}
+      className={cn("group relative", benefit.highlight && "md:col-span-1")}
     >
       <Card
         className={cn(
-          'h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1',
-          benefit.highlight && 'border-cyan-200 bg-gradient-to-br from-cyan-50/50 to-white'
+          "h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
+          benefit.highlight &&
+            "border-cyan-200 bg-gradient-to-br from-cyan-50/50 to-white"
         )}
       >
         <CardContent className="p-6">
           <div
             className={cn(
-              'inline-flex p-3 rounded-xl mb-4',
+              "inline-flex p-3 rounded-xl mb-4",
               colorClasses[benefit.color as keyof typeof colorClasses]
             )}
           >
@@ -382,7 +396,9 @@ function CategoryCard({
       viewport={{ once: true }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
     >
-      <Link to={`${ROUTES.SEARCH}?category=${encodeURIComponent(category.name)}`}>
+      <Link
+        to={`${ROUTES.SEARCH}?category=${encodeURIComponent(category.name)}`}
+      >
         <Card className="group cursor-pointer transition-all duration-300 hover:shadow-md hover:border-cyan-300 hover:-translate-y-1">
           <CardContent className="p-5">
             <div className="flex items-center gap-4">
@@ -404,7 +420,13 @@ function CategoryCard({
   );
 }
 
-function ProviderCard({ provider, index }: { provider: typeof featuredProviders[0]; index: number }) {
+function ProviderCard({
+  provider,
+  index,
+}: {
+  provider: (typeof featuredProviders)[0];
+  index: number;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -418,12 +440,14 @@ function ProviderCard({ provider, index }: { provider: typeof featuredProviders[
           <div className="flex items-start gap-4 mb-4">
             <Avatar
               src={provider.avatar}
-              firstName={provider.name.split(' ')[0]}
-              lastName={provider.name.split(' ')[1]}
+              firstName={provider.name.split(" ")[0]}
+              lastName={provider.name.split(" ")[1]}
               size="lg"
             />
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold truncate">{provider.businessName}</h3>
+              <h3 className="font-semibold truncate">
+                {provider.businessName}
+              </h3>
               <p className="text-sm text-muted-foreground">
                 {provider.category} • {provider.location}
               </p>
@@ -454,13 +478,21 @@ function ProviderCard({ provider, index }: { provider: typeof featuredProviders[
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="flex-1" asChild>
-              <Link to={`${ROUTES.SEARCH}?q=${encodeURIComponent(provider.businessName)}`}>
+              <Link
+                to={`${ROUTES.SEARCH}?q=${encodeURIComponent(
+                  provider.businessName
+                )}`}
+              >
                 <MessageSquare className="h-4 w-4 mr-1" />
                 Contact
               </Link>
             </Button>
             <Button size="sm" className="flex-1" asChild>
-              <Link to={`${ROUTES.SEARCH}?q=${encodeURIComponent(provider.businessName)}`}>
+              <Link
+                to={`${ROUTES.SEARCH}?q=${encodeURIComponent(
+                  provider.businessName
+                )}`}
+              >
                 <Calendar className="h-4 w-4 mr-1" />
                 Book Now
               </Link>
@@ -472,7 +504,13 @@ function ProviderCard({ provider, index }: { provider: typeof featuredProviders[
   );
 }
 
-function TestimonialCard({ testimonial, index }: { testimonial: typeof testimonials[0]; index: number }) {
+function TestimonialCard({
+  testimonial,
+  index,
+}: {
+  testimonial: (typeof testimonials)[0];
+  index: number;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -495,8 +533,8 @@ function TestimonialCard({ testimonial, index }: { testimonial: typeof testimoni
           <div className="flex items-center gap-3">
             <Avatar
               src={testimonial.avatar}
-              firstName={testimonial.name.split(' ')[0]}
-              lastName={testimonial.name.split(' ')[1]}
+              firstName={testimonial.name.split(" ")[0]}
+              lastName={testimonial.name.split(" ")[1]}
               size="md"
             />
             <div>
@@ -515,7 +553,15 @@ function TestimonialCard({ testimonial, index }: { testimonial: typeof testimoni
   );
 }
 
-function FAQItem({ faq, isOpen, onToggle }: { faq: typeof faqs[0]; isOpen: boolean; onToggle: () => void }) {
+function FAQItem({
+  faq,
+  isOpen,
+  onToggle,
+}: {
+  faq: (typeof faqs)[0];
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   return (
     <div className="border-b border-border last:border-0">
       <button
@@ -525,8 +571,8 @@ function FAQItem({ faq, isOpen, onToggle }: { faq: typeof faqs[0]; isOpen: boole
         <span className="font-medium pr-4">{faq.question}</span>
         <ChevronDown
           className={cn(
-            'h-5 w-5 text-muted-foreground shrink-0 transition-transform duration-200',
-            isOpen && 'rotate-180 text-cyan-600'
+            "h-5 w-5 text-muted-foreground shrink-0 transition-transform duration-200",
+            isOpen && "rotate-180 text-cyan-600"
           )}
         />
       </button>
@@ -534,7 +580,7 @@ function FAQItem({ faq, isOpen, onToggle }: { faq: typeof faqs[0]; isOpen: boole
         {isOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
@@ -554,14 +600,16 @@ function FAQItem({ faq, isOpen, onToggle }: { faq: typeof faqs[0]; isOpen: boole
 // ==========================================
 
 export function HomePage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('Beauty & Wellness');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("Beauty & Wellness");
   const [openFAQ, setOpenFAQ] = useState<number | null>(0);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `${ROUTES.SEARCH}?q=${encodeURIComponent(searchQuery)}`;
+      window.location.href = `${ROUTES.SEARCH}?q=${encodeURIComponent(
+        searchQuery
+      )}`;
     }
   };
 
@@ -597,7 +645,7 @@ export function HomePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
-              Find & Book Your Next Appointment{' '}
+              Find & Book Your Next Appointment{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-teal-500">
                 in Under 60 Seconds
               </span>
@@ -610,9 +658,9 @@ export function HomePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              Hair stylists, coaches, therapists, consultants...{' '}
-              <strong className="text-foreground">50+ categories</strong> of verified
-              professionals available near you.
+              Hair stylists, coaches, therapists, consultants...{" "}
+              <strong className="text-foreground">50+ categories</strong> of
+              verified professionals available near you.
             </motion.p>
 
             {/* Search Bar */}
@@ -648,17 +696,21 @@ export function HomePage() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              {['Hair Salon', 'Massage', 'Personal Trainer', 'Business Coach', 'Psychologist'].map(
-                (cat) => (
-                  <Link
-                    key={cat}
-                    to={`${ROUTES.SEARCH}?category=${encodeURIComponent(cat)}`}
-                    className="px-4 py-2 bg-white/80 hover:bg-white rounded-full text-sm font-medium text-muted-foreground hover:text-cyan-600 transition-colors border hover:border-cyan-300"
-                  >
-                    {cat}
-                  </Link>
-                )
-              )}
+              {[
+                "Hair Salon",
+                "Massage",
+                "Personal Trainer",
+                "Business Coach",
+                "Psychologist",
+              ].map((cat) => (
+                <Link
+                  key={cat}
+                  to={`${ROUTES.SEARCH}?category=${encodeURIComponent(cat)}`}
+                  className="px-4 py-2 bg-white/80 hover:bg-white rounded-full text-sm font-medium text-muted-foreground hover:text-cyan-600 transition-colors border hover:border-cyan-300"
+                >
+                  {cat}
+                </Link>
+              ))}
             </motion.div>
 
             {/* Social Proof Bar */}
@@ -685,7 +737,8 @@ export function HomePage() {
               Everything You Need to Book with Confidence
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              We've built the features that matter most to make your booking experience seamless.
+              We've built the features that matter most to make your booking
+              experience seamless.
             </p>
           </motion.div>
 
@@ -715,7 +768,8 @@ export function HomePage() {
               Find the Perfect Professional for Your Needs
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              From beauty to business, we've got you covered with verified professionals in every field.
+              From beauty to business, we've got you covered with verified
+              professionals in every field.
             </p>
           </motion.div>
 
@@ -740,7 +794,11 @@ export function HomePage() {
               <TabsContent key={group} value={group}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {categories.map((category, index) => (
-                    <CategoryCard key={category.name} category={category} index={index} />
+                    <CategoryCard
+                      key={category.name}
+                      category={category}
+                      index={index}
+                    />
                   ))}
                 </div>
               </TabsContent>
@@ -783,7 +841,11 @@ export function HomePage() {
 
           <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
             {featuredProviders.map((provider, index) => (
-              <ProviderCard key={provider.id} provider={provider} index={index} />
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                index={index}
+              />
             ))}
           </div>
 
@@ -816,7 +878,8 @@ export function HomePage() {
                 Grow Your Business with BookMe
               </h2>
               <p className="text-white/80 text-lg mb-8">
-                Join thousands of professionals who've simplified their scheduling and gained new clients — completely free.
+                Join thousands of professionals who've simplified their
+                scheduling and gained new clients — completely free.
               </p>
 
               <div className="grid sm:grid-cols-3 gap-6 mb-8">
@@ -826,7 +889,9 @@ export function HomePage() {
                       <benefit.icon className="h-6 w-6" />
                     </div>
                     <h3 className="font-semibold mb-1">{benefit.title}</h3>
-                    <p className="text-sm text-white/70">{benefit.description}</p>
+                    <p className="text-sm text-white/70">
+                      {benefit.description}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -846,7 +911,11 @@ export function HomePage() {
                 </div>
               </div>
 
-              <Button size="lg" className="bg-cyan-500 hover:bg-cyan-600" asChild>
+              <Button
+                size="lg"
+                className="bg-cyan-500 hover:bg-cyan-600"
+                asChild
+              >
                 <Link to={ROUTES.REGISTER}>
                   <Zap className="h-5 w-5 mr-2" />
                   Create My Free Profile
@@ -866,15 +935,22 @@ export function HomePage() {
                     <Avatar firstName="Sophie" lastName="Martin" size="lg" />
                     <div>
                       <p className="font-semibold">Sophie Martin</p>
-                      <p className="text-sm text-white/70">Esthetician • Paris</p>
+                      <p className="text-sm text-white/70">
+                        Esthetician • Paris
+                      </p>
                     </div>
                   </div>
                   <p className="text-white/90 italic mb-4">
-                    "I gained 15 new regular clients in just 2 months. The platform is intuitive and being free means I keep 100% of my earnings. Best decision for my business!"
+                    "I gained 15 new regular clients in just 2 months. The
+                    platform is intuitive and being free means I keep 100% of my
+                    earnings. Best decision for my business!"
                   </p>
                   <div className="flex gap-1">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      <Star
+                        key={i}
+                        className="h-4 w-4 fill-amber-400 text-amber-400"
+                      />
                     ))}
                   </div>
                 </CardContent>
@@ -908,7 +984,11 @@ export function HomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, index) => (
-              <TestimonialCard key={testimonial.name} testimonial={testimonial} index={index} />
+              <TestimonialCard
+                key={testimonial.name}
+                testimonial={testimonial}
+                index={index}
+              />
             ))}
           </div>
 
@@ -953,7 +1033,9 @@ export function HomePage() {
                     key={index}
                     faq={faq}
                     isOpen={openFAQ === index}
-                    onToggle={() => setOpenFAQ(openFAQ === index ? null : index)}
+                    onToggle={() =>
+                      setOpenFAQ(openFAQ === index ? null : index)
+                    }
                   />
                 ))}
               </CardContent>
@@ -993,7 +1075,8 @@ export function HomePage() {
               Your Next Appointment is Just a Click Away
             </h2>
             <p className="text-lg sm:text-xl text-white/90 mb-10 max-w-2xl mx-auto">
-              Join <strong>10,000+</strong> users who've simplified their appointment booking with BookMe.
+              Join <strong>10,000+</strong> users who've simplified their
+              appointment booking with BookMe.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -1025,14 +1108,22 @@ export function HomePage() {
               <p className="text-white/70 text-sm">Coming soon on mobile</p>
               <div className="flex gap-3">
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg border border-white/20">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  <svg
+                    className="h-6 w-6"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
                   </svg>
                   <span className="text-sm">App Store</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg border border-white/20">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.802 8.99l-2.303 2.303-8.635-8.635z"/>
+                  <svg
+                    className="h-6 w-6"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.802 8.99l-2.303 2.303-8.635-8.635z" />
                   </svg>
                   <span className="text-sm">Google Play</span>
                 </div>

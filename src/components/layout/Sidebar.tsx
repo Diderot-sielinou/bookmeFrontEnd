@@ -171,7 +171,7 @@ export function Sidebar({ collapsed = false, onToggle, className }: SidebarProps
       <div className="border-t p-4">
         {!collapsed && (
           <p className="text-xs text-muted-foreground text-center">
-            BookMe © 2024
+            BookMe © 2026
           </p>
         )}
       </div>

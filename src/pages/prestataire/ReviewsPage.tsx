@@ -1,14 +1,19 @@
 /**
- * ReviewsPage (Provider)
+ * PrestataireReviewsPage - ENHANCED VERSION
  *
- * Review management page for providers.
- * Allows viewing received reviews and responding to them.
- * ALIGNED WITH BACKEND
+ * Review management with:
+ * - Visual rating breakdown
+ * - Response composer
+ * - Filter by sentiment
+ * - Report functionality
+ * - Response templates
  */
 
-import { useState } from "react";
-import { format } from "date-fns";
-import { enUS } from "date-fns/locale";
+import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
+import { enUS } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import {
   Star,
   Search,
@@ -18,180 +23,218 @@ import {
   TrendingDown,
   Minus,
   ThumbsUp,
+  ThumbsDown,
   Loader2,
   RefreshCw,
-} from "lucide-react";
+  MessageSquare,
+  Filter,
+  ChevronDown,
+  Sparkles,
+  Award,
+  AlertTriangle,
+} from 'lucide-react';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useReviewsManagement, useFlagReview } from '@/hooks/useReviews';
+import { getReviewStats } from '@/services/reviews.service';
+import type { Review } from '@/types';
 import {
+  Button,
+  Input,
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import {
+  CardDescription,
+  Badge,
+  Avatar,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Progress,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { showSuccess, showError } from "@/components/ui/toast";
-import { getErrorMessage } from "@/lib/api";
-
-// ✅ Hooks aligned with backend
-import { useReviewsManagement, useFlagReview } from "@/hooks/useReviews";
-import { useAuth } from "@/hooks/useAuth";
-import { getReviewStats } from "@/services/reviews.service";
-import { useQuery } from "@tanstack/react-query";
-import type { Review } from "@/types";
+  Textarea,
+  Label,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+import { showSuccess, showError } from '@/components/ui/toast';
 
 // ==========================================
-// STATS COMPONENT - CORRECTED
+// RATING STARS COMPONENT
 // ==========================================
 
-function ReviewStats({ prestataireId }: { prestataireId: string }) {
+function RatingStars({ rating, size = 'md' }: { rating: number; size?: 'sm' | 'md' | 'lg' }) {
+  const sizeClasses = {
+    sm: 'h-3 w-3',
+    md: 'h-4 w-4',
+    lg: 'h-5 w-5',
+  };
+
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={cn(
+            sizeClasses[size],
+            star <= rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200'
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ==========================================
+// STATS OVERVIEW COMPONENT
+// ==========================================
+
+interface StatsOverviewProps {
+  prestataireId: string;
+}
+
+function StatsOverview({ prestataireId }: StatsOverviewProps) {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['reviews', 'stats', prestataireId],
     queryFn: () => getReviewStats(prestataireId),
     enabled: !!prestataireId,
   });
 
-  if (isLoading || !stats) {
+  if (isLoading) {
     return (
       <Card>
-        <CardContent className="p-6 flex justify-center">
-          <Loader2 className="h-6 w-6 animate-spin" />
+        <CardContent className="p-6">
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
         </CardContent>
       </Card>
     );
   }
 
-  // ✅ Handle both possible distribution formats
-  const getDistributionCount = (rating: number): number => {
+  if (!stats) return null;
+
+  const getDistributionData = () => {
     if (Array.isArray(stats.distribution)) {
-      // Array format: [{ rating: 5, count: 10, percentage: 50 }, ...]
-      const item = stats.distribution.find((d: { rating: number; count: number }) => d.rating === rating);
-      return item?.count || 0;
-    } else if (stats.distribution && typeof stats.distribution === 'object') {
-      // Object format: { 5: 10, 4: 5, 3: 2, 2: 1, 1: 0 }
-      return (stats.distribution as Record<number, number>)[rating] || 0;
+      return stats.distribution;
     }
-    return 0;
+    return [5, 4, 3, 2, 1].map((rating) => ({
+      rating,
+      count: (stats.distribution as Record<number, number>)?.[rating] || 0,
+      percentage:
+        stats.totalReviews > 0
+          ? (((stats.distribution as Record<number, number>)?.[rating] || 0) / stats.totalReviews) * 100
+          : 0,
+    }));
   };
 
-  const getDistributionPercentage = (rating: number): number => {
-    if (Array.isArray(stats.distribution)) {
-      const item = stats.distribution.find((d: { rating: number; percentage: number }) => d.rating === rating);
-      return item?.percentage || 0;
-    } else if (stats.distribution && typeof stats.distribution === 'object') {
-      const count = (stats.distribution as Record<number, number>)[rating] || 0;
-      return stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
-    }
-    return 0;
-  };
-
-  // Calculate trend
-  const positiveCount = getDistributionCount(5) + getDistributionCount(4);
+  const distribution = getDistributionData();
+  const positiveCount = distribution
+    .filter((d) => d.rating >= 4)
+    .reduce((sum, d) => sum + d.count, 0);
   const positiveRate = stats.totalReviews > 0 ? (positiveCount / stats.totalReviews) * 100 : 0;
-  const trend = positiveRate >= 70 ? 'up' : positiveRate >= 50 ? 'stable' : 'down';
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Review Statistics</CardTitle>
-        <CardDescription>Overview of your ratings</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Average Rating */}
+    <Card className="overflow-hidden">
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-white">
+        <div className="flex items-center gap-6">
+          {/* Main Rating */}
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-4xl font-bold">
-                {(stats.averageRating || 0).toFixed(1)}
-              </span>
-              <Star className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-            </div>
-            <p className="text-muted-foreground mt-1">out of {stats.totalReviews || 0} reviews</p>
-            <div className="flex items-center justify-center gap-1 mt-2">
-              {trend === 'up' && (
-                <>
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-green-500">Trending Up</span>
-                </>
-              )}
-              {trend === 'down' && (
-                <>
-                  <TrendingDown className="h-4 w-4 text-red-500" />
-                  <span className="text-sm text-red-500">Trending Down</span>
-                </>
-              )}
-              {trend === 'stable' && (
-                <>
-                  <Minus className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Stable</span>
-                </>
-              )}
-            </div>
+            <p className="text-5xl font-bold">{(stats.averageRating || 0).toFixed(1)}</p>
+            <RatingStars rating={Math.round(stats.averageRating || 0)} size="lg" />
+            <p className="text-amber-100 mt-1">{stats.totalReviews} reviews</p>
           </div>
 
+          {/* Sentiment */}
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              {positiveRate >= 70 ? (
+                <>
+                  <TrendingUp className="h-5 w-5" />
+                  <span className="font-medium">Excellent</span>
+                </>
+              ) : positiveRate >= 50 ? (
+                <>
+                  <Minus className="h-5 w-5" />
+                  <span className="font-medium">Good</span>
+                </>
+              ) : (
+                <>
+                  <TrendingDown className="h-5 w-5" />
+                  <span className="font-medium">Needs Improvement</span>
+                </>
+              )}
+            </div>
+            <p className="text-amber-100 text-sm">
+              {positiveRate.toFixed(0)}% of clients gave 4+ stars
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <CardContent className="p-6">
+        <div className="grid md:grid-cols-2 gap-6">
           {/* Distribution */}
-          <div className="space-y-2">
-            {[5, 4, 3, 2, 1].map((rating) => {
-              const count = getDistributionCount(rating);
-              const percentage = getDistributionPercentage(rating);
-              return (
-                <div key={rating} className="flex items-center gap-2">
-                  <span className="w-3 text-sm font-medium">{rating}</span>
-                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                  <Progress value={percentage} className="flex-1 h-2" />
-                  <span className="w-10 text-sm text-muted-foreground text-right">{count}</span>
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground">Rating Distribution</h4>
+            {distribution.map((item) => (
+              <div key={item.rating} className="flex items-center gap-3">
+                <span className="w-4 text-sm font-medium">{item.rating}</span>
+                <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                <div className="flex-1">
+                  <Progress value={item.percentage} className="h-2" />
                 </div>
-              );
-            })}
+                <span className="w-8 text-sm text-muted-foreground text-right">{item.count}</span>
+              </div>
+            ))}
           </div>
 
-          {/* Sub-criteria */}
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm">Details</h4>
-            {stats.averageQuality !== null && stats.averageQuality !== undefined && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Quality</span>
-                <span className="font-medium">{stats.averageQuality.toFixed(1)}/5</span>
+          {/* Breakdown */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm text-muted-foreground">Quality Breakdown</h4>
+            {stats.averageQuality != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Service Quality</span>
+                <div className="flex items-center gap-2">
+                  <Progress value={(stats.averageQuality / 5) * 100} className="w-24 h-2" />
+                  <span className="font-medium">{stats.averageQuality.toFixed(1)}</span>
+                </div>
               </div>
             )}
-            {stats.averagePunctuality !== null && stats.averagePunctuality !== undefined && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Punctuality</span>
-                <span className="font-medium">{stats.averagePunctuality.toFixed(1)}/5</span>
+            {stats.averagePunctuality != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Punctuality</span>
+                <div className="flex items-center gap-2">
+                  <Progress value={(stats.averagePunctuality / 5) * 100} className="w-24 h-2" />
+                  <span className="font-medium">{stats.averagePunctuality.toFixed(1)}</span>
+                </div>
               </div>
             )}
-            {stats.averageCleanliness !== null && stats.averageCleanliness !== undefined && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Cleanliness</span>
-                <span className="font-medium">{stats.averageCleanliness.toFixed(1)}/5</span>
+            {stats.averageCleanliness != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Cleanliness</span>
+                <div className="flex items-center gap-2">
+                  <Progress value={(stats.averageCleanliness / 5) * 100} className="w-24 h-2" />
+                  <span className="font-medium">{stats.averageCleanliness.toFixed(1)}</span>
+                </div>
               </div>
-            )}
-            {!stats.averageQuality && !stats.averagePunctuality && !stats.averageCleanliness && (
-              <p className="text-sm text-muted-foreground">No details yet</p>
             )}
           </div>
         </div>
@@ -212,118 +255,261 @@ interface ReviewCardProps {
 
 function ReviewCard({ review, onReply, onReport }: ReviewCardProps) {
   const client = review.client;
-  const clientName = client
-    ? `${client.firstName} ${client.lastName}`
-    : "Client";
-  const clientInitials = client
-    ? `${client.firstName[0]}${client.lastName[0]}`
-    : "CL";
+  const clientName = client ? `${client.firstName} ${client.lastName}` : 'Client';
 
-  const serviceName = review.appointment?.service?.name || "Service";
+  const getSentiment = () => {
+    if (review.rating >= 4) return { label: 'Positive', color: 'bg-green-100 text-green-700' };
+    if (review.rating >= 3) return { label: 'Neutral', color: 'bg-amber-100 text-amber-700' };
+    return { label: 'Negative', color: 'bg-red-100 text-red-700' };
+  };
+
+  const sentiment = getSentiment();
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start gap-4">
-          <Avatar
-           src={client?.avatar || undefined}
-            firstName={client?.firstName}
-            lastName={client?.lastName}
-            className="h-12 w-12"
-          />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+    >
+      <Card className="overflow-hidden">
+        {/* Sentiment indicator */}
+        <div
+          className={cn(
+            'h-1',
+            review.rating >= 4 ? 'bg-green-500' : review.rating >= 3 ? 'bg-amber-500' : 'bg-red-500'
+          )}
+        />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-4">
+        <CardContent className="p-5">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex items-start gap-3">
+              <Avatar
+                src={client?.avatar}
+                firstName={client?.firstName}
+                lastName={client?.lastName}
+                size="lg"
+              />
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold">{clientName}</h3>
-                  <Badge variant="secondary">{serviceName}</Badge>
+                  <Badge variant="secondary" className={sentiment.color}>
+                    {sentiment.label}
+                  </Badge>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-4 w-4 ${
-                          i < review.rating
-                            ? "text-yellow-500 fill-yellow-500"
-                            : "text-gray-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
+                  <RatingStars rating={review.rating} size="sm" />
                   <span className="text-sm text-muted-foreground">
-                    {format(new Date(review.createdAt), "MMMM d, yyyy", {
-                      locale: enUS,
-                    })}
+                    {format(new Date(review.createdAt), 'MMM d, yyyy', { locale: enUS })}
                   </span>
                 </div>
-              </div>
-
-              <div className="flex gap-2">
-                {!review.prestataireResponse && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onReply(review)}
-                  >
-                    <Reply className="h-4 w-4 mr-1" />
-                    Reply
-                  </Button>
+                {review.appointment?.service && (
+                  <Badge variant="outline" className="mt-2">
+                    {review.appointment.service.name}
+                  </Badge>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onReport(review)}
-                >
-                  <Flag className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 
-            <p className="mt-3 text-muted-foreground">{review.comment}</p>
+            {/* Actions */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!review.prestataireResponse && (
+                  <DropdownMenuItem onClick={() => onReply(review)}>
+                    <Reply className="h-4 w-4 mr-2" />
+                    Reply
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => onReport(review)} className="text-destructive">
+                  <Flag className="h-4 w-4 mr-2" />
+                  Report
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-            {/* Sub-ratings */}
-            {(review.qualityRating ||
-              review.punctualityRating ||
-              review.cleanlinessRating) && (
-              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                {review.qualityRating && (
-                  <span>Quality: {review.qualityRating}/5</span>
-                )}
-                {review.punctualityRating && (
-                  <span>Punctuality: {review.punctualityRating}/5</span>
-                )}
-                {review.cleanlinessRating && (
-                  <span>Cleanliness: {review.cleanlinessRating}/5</span>
-                )}
-              </div>
-            )}
+          {/* Comment */}
+          <p className="text-muted-foreground mb-4">{review.comment}</p>
 
-            {/* Provider Response */}
-            {review.prestataireResponse && (
-              <div className="mt-4 pl-4 border-l-2 border-primary/30">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="text-xs">
-                    Your Response
-                  </Badge>
-                  {review.responseAt && (
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(review.responseAt), "MMM d, yyyy", {
-                        locale: enUS,
-                      })}
-                    </span>
-                  )}
+          {/* Sub-ratings */}
+          {(review.qualityRating || review.punctualityRating || review.cleanlinessRating) && (
+            <div className="flex flex-wrap gap-3 mb-4">
+              {review.qualityRating && (
+                <div className="flex items-center gap-1 text-sm">
+                  <span className="text-muted-foreground">Quality:</span>
+                  <span className="font-medium">{review.qualityRating}/5</span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {review.prestataireResponse}
-                </p>
+              )}
+              {review.punctualityRating && (
+                <div className="flex items-center gap-1 text-sm">
+                  <span className="text-muted-foreground">Punctuality:</span>
+                  <span className="font-medium">{review.punctualityRating}/5</span>
+                </div>
+              )}
+              {review.cleanlinessRating && (
+                <div className="flex items-center gap-1 text-sm">
+                  <span className="text-muted-foreground">Cleanliness:</span>
+                  <span className="font-medium">{review.cleanlinessRating}/5</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Provider Response */}
+          {review.prestataireResponse && (
+            <div className="mt-4 p-4 rounded-lg bg-cyan-50 border-l-4 border-cyan-500">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-cyan-600" />
+                <span className="font-medium text-cyan-800 text-sm">Your Response</span>
+                {review.responseAt && (
+                  <span className="text-xs text-cyan-600">
+                    {format(new Date(review.responseAt), 'MMM d, yyyy', { locale: enUS })}
+                  </span>
+                )}
               </div>
-            )}
+              <p className="text-sm text-cyan-900">{review.prestataireResponse}</p>
+            </div>
+          )}
+
+          {/* Reply CTA */}
+          {!review.prestataireResponse && (
+            <Button variant="outline" size="sm" onClick={() => onReply(review)} className="mt-4">
+              <Reply className="h-4 w-4 mr-2" />
+              Write a Response
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+// ==========================================
+// REPLY DIALOG
+// ==========================================
+
+interface ReplyDialogProps {
+  review: Review | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (response: string) => Promise<void>;
+  isLoading: boolean;
+}
+
+function ReplyDialog({ review, open, onOpenChange, onSubmit, isLoading }: ReplyDialogProps) {
+  const [response, setResponse] = useState('');
+
+  // Response templates
+  const templates = [
+    {
+      label: 'Thank you',
+      text: "Thank you so much for your kind words! I'm thrilled that you enjoyed your experience. Looking forward to seeing you again!",
+    },
+    {
+      label: 'Apologize',
+      text: "Thank you for taking the time to share your feedback. I'm sorry to hear that your experience didn't meet expectations. I'd love the opportunity to make it right. Please reach out to discuss how I can improve.",
+    },
+    {
+      label: 'Appreciate',
+      text: 'I really appreciate you taking the time to leave this review. Your feedback helps me continue to improve my services. Thank you for your support!',
+    },
+  ];
+
+  const handleSubmit = async () => {
+    if (response.trim().length < 5) return;
+    await onSubmit(response);
+    setResponse('');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Reply className="h-5 w-5 text-cyan-500" />
+            Reply to Review
+          </DialogTitle>
+          <DialogDescription>
+            Your response will be publicly visible to all users
+          </DialogDescription>
+        </DialogHeader>
+
+        {review && (
+          <div className="p-4 rounded-lg bg-gray-50 border">
+            <div className="flex items-center gap-2 mb-2">
+              <Avatar
+                src={review.client?.avatar}
+                firstName={review.client?.firstName}
+                lastName={review.client?.lastName}
+                size="sm"
+              />
+              <span className="font-medium text-sm">
+                {review.client?.firstName} {review.client?.lastName}
+              </span>
+              <RatingStars rating={review.rating} size="sm" />
+            </div>
+            <p className="text-sm text-muted-foreground line-clamp-3">{review.comment}</p>
+          </div>
+        )}
+
+        {/* Templates */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Quick Templates</Label>
+          <div className="flex flex-wrap gap-2">
+            {templates.map((template) => (
+              <Button
+                key={template.label}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setResponse(template.text)}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                {template.label}
+              </Button>
+            ))}
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Response Input */}
+        <div className="space-y-2">
+          <Label>Your Response</Label>
+          <Textarea
+            placeholder="Write a thoughtful response..."
+            value={response}
+            onChange={(e) => setResponse(e.target.value)}
+            rows={4}
+          />
+          <p className="text-xs text-muted-foreground">
+            {response.length}/500 characters (minimum 5)
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={response.trim().length < 5 || response.length > 500 || isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Publishing...
+              </>
+            ) : (
+              'Publish Response'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -331,97 +517,90 @@ function ReviewCard({ review, onReply, onReport }: ReviewCardProps) {
 // MAIN COMPONENT
 // ==========================================
 
-export default function ReviewsPage() {
+export default function PrestataireReviewsPage() {
   const { profile } = useAuth();
   const prestataireId = profile?.id;
 
-  // ✅ Hook aligned with backend
-  const { reviews, isLoading, respond, isResponding, refetch } =
-    useReviewsManagement();
+  const { reviews, isLoading, respond, isResponding, refetch } = useReviewsManagement();
   const flagMutation = useFlagReview();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [ratingFilter, setRatingFilter] = useState<string>("all");
-  const [responseFilter, setResponseFilter] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [ratingFilter, setRatingFilter] = useState<string>('all');
+  const [responseFilter, setResponseFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [replyDialogOpen, setReplyDialogOpen] = useState(false);
-  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
-  const [replyText, setReplyText] = useState("");
-
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("");
+  const [replyDialog, setReplyDialog] = useState<{ open: boolean; review: Review | null }>({
+    open: false,
+    review: null,
+  });
+  const [reportDialog, setReportDialog] = useState<{ open: boolean; review: Review | null }>({
+    open: false,
+    review: null,
+  });
+  const [reportReason, setReportReason] = useState('');
 
   // Filter reviews
-  const filteredReviews = reviews.filter((review) => {
-    const client = review.client;
-    const clientName = client
-      ? `${client.firstName} ${client.lastName}`.toLowerCase()
-      : "";
-    const comment = (review.comment || "").toLowerCase();
-    const query = searchQuery.toLowerCase();
+  const filteredReviews = useMemo(() => {
+    return reviews.filter((review) => {
+      const clientName = review.client
+        ? `${review.client.firstName} ${review.client.lastName}`.toLowerCase()
+        : '';
+      const comment = (review.comment || '').toLowerCase();
+      const query = searchQuery.toLowerCase();
 
-    if (query && !clientName.includes(query) && !comment.includes(query)) {
-      return false;
-    }
+      if (query && !clientName.includes(query) && !comment.includes(query)) {
+        return false;
+      }
 
-    if (ratingFilter !== "all" && review.rating !== parseInt(ratingFilter)) {
-      return false;
-    }
+      if (ratingFilter !== 'all' && review.rating !== parseInt(ratingFilter)) {
+        return false;
+      }
 
-    if (responseFilter === "responded" && !review.prestataireResponse)
-      return false;
-    if (responseFilter === "pending" && review.prestataireResponse)
-      return false;
+      if (responseFilter === 'responded' && !review.prestataireResponse) return false;
+      if (responseFilter === 'pending' && review.prestataireResponse) return false;
 
-    if (activeTab === "positive" && review.rating < 4) return false;
-    if (activeTab === "negative" && review.rating >= 4) return false;
+      if (activeTab === 'positive' && review.rating < 4) return false;
+      if (activeTab === 'negative' && review.rating < 4) return false;
 
-    return true;
-  });
+      return true;
+    });
+  }, [reviews, searchQuery, ratingFilter, responseFilter, activeTab]);
 
-  const pendingResponseCount = reviews.filter(
-    (r) => !r.prestataireResponse
-  ).length;
+  const pendingCount = reviews.filter((r) => !r.prestataireResponse).length;
+  const positiveCount = reviews.filter((r) => r.rating >= 4).length;
+  const negativeCount = reviews.filter((r) => r.rating < 4).length;
 
   // Handlers
   const handleReply = (review: Review) => {
-    setSelectedReview(review);
-    setReplyText("");
-    setReplyDialogOpen(true);
+    setReplyDialog({ open: true, review });
   };
 
   const handleReport = (review: Review) => {
-    setSelectedReview(review);
-    setReportReason("");
-    setReportDialogOpen(true);
+    setReportDialog({ open: true, review });
+    setReportReason('');
   };
 
-  const submitReply = async () => {
-    if (!selectedReview || !replyText.trim()) return;
-
+  const submitReply = async (response: string) => {
+    if (!replyDialog.review) return;
     try {
-      await respond({ id: selectedReview.id, data: { response: replyText } });
-      setReplyDialogOpen(false);
-      setReplyText("");
-      setSelectedReview(null);
+      await respond({ id: replyDialog.review.id, data: { response } });
+      setReplyDialog({ open: false, review: null });
+      showSuccess('Response published!');
     } catch (error) {
       // Error handled by mutation
     }
   };
 
   const submitReport = async () => {
-    if (!selectedReview || !reportReason.trim()) return;
-
+    if (!reportDialog.review || !reportReason.trim()) return;
     try {
       await flagMutation.mutateAsync({
-        id: selectedReview.id,
+        id: reportDialog.review.id,
         reason: reportReason,
       });
-      setReportDialogOpen(false);
-      setReportReason("");
-      setSelectedReview(null);
+      setReportDialog({ open: false, review: null });
+      showSuccess('Review reported');
     } catch (error) {
       // Error handled by mutation
     }
@@ -440,33 +619,27 @@ export default function ReviewsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Client Reviews</h1>
+          <h1 className="text-2xl font-bold">Reviews</h1>
           <p className="text-muted-foreground">
-            {pendingResponseCount > 0
-              ? `${pendingResponseCount} review${pendingResponseCount > 1 ? 's' : ''} pending response`
-              : "All reviews have responses"}
+            {pendingCount > 0
+              ? `${pendingCount} review${pendingCount > 1 ? 's' : ''} awaiting response`
+              : 'All reviews have been responded to'}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCw
-            className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-          />
+        <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+          <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
           Refresh
         </Button>
       </div>
 
-      {/* Stats */}
-      {prestataireId && <ReviewStats prestataireId={prestataireId} />}
+      {/* Stats Overview */}
+      {prestataireId && <StatsOverview prestataireId={prestataireId} />}
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -494,12 +667,12 @@ export default function ReviewsPage() {
 
             <Select value={responseFilter} onValueChange={setResponseFilter}>
               <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Response" />
+                <SelectValue placeholder="Response Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="pending">Pending Response</SelectItem>
-                <SelectItem value="responded">With Response</SelectItem>
+                <SelectItem value="all">All Reviews</SelectItem>
+                <SelectItem value="pending">Awaiting Response</SelectItem>
+                <SelectItem value="responded">Responded</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -508,127 +681,79 @@ export default function ReviewsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="all">All ({reviews.length})</TabsTrigger>
-          <TabsTrigger value="positive" className="flex items-center gap-1">
-            <ThumbsUp className="h-4 w-4" />
-            Positive ({reviews.filter((r) => r.rating >= 4).length})
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="all" className="flex items-center gap-2">
+            All ({reviews.length})
           </TabsTrigger>
-          <TabsTrigger value="negative">
-            To Improve ({reviews.filter((r) => r.rating < 4).length})
+          <TabsTrigger value="positive" className="flex items-center gap-2">
+            <ThumbsUp className="h-4 w-4" />
+            Positive ({positiveCount})
+          </TabsTrigger>
+          <TabsTrigger value="negative" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            To Address ({negativeCount})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-4">
-          {filteredReviews.length === 0 ? (
-            <EmptyState
-              icon={Star}
-              title="No Reviews"
-              description="No reviews match your search criteria."
-            />
-          ) : (
-            <div className="space-y-4">
-              {filteredReviews.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  review={review}
-                  onReply={handleReply}
-                  onReport={handleReport}
+        <TabsContent value={activeTab} className="mt-6">
+          <AnimatePresence mode="popLayout">
+            {filteredReviews.length === 0 ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <EmptyState
+                  icon={Star}
+                  title="No Reviews Found"
+                  description={
+                    reviews.length === 0
+                      ? "You haven't received any reviews yet"
+                      : 'No reviews match your current filters'
+                  }
                 />
-              ))}
-            </div>
-          )}
+              </motion.div>
+            ) : (
+              <div className="space-y-4">
+                {filteredReviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    onReply={handleReply}
+                    onReport={handleReport}
+                  />
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
         </TabsContent>
       </Tabs>
 
       {/* Reply Dialog */}
-      <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reply to Review</DialogTitle>
-            <DialogDescription>
-              Your response will be publicly visible below the client's review.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedReview && (
-            <div className="bg-muted/50 p-3 rounded-lg text-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-medium">
-                  {selectedReview.client?.firstName}{" "}
-                  {selectedReview.client?.lastName}
-                </span>
-                <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-3 w-3 ${
-                        i < selectedReview.rating
-                          ? "text-yellow-500 fill-yellow-500"
-                          : "text-gray-300"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-              <p className="text-muted-foreground">{selectedReview.comment}</p>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="reply">Your Response</Label>
-            <Textarea
-              id="reply"
-              placeholder="Thank the client for their review..."
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              rows={4}
-            />
-            <p className="text-xs text-muted-foreground">
-              5 to 500 characters ({replyText.length}/500)
-            </p>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReplyDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={submitReply}
-              disabled={
-                replyText.trim().length < 5 ||
-                replyText.length > 500 ||
-                isResponding
-              }
-            >
-              {isResponding ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Publishing...
-                </>
-              ) : (
-                "Publish Response"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReplyDialog
+        review={replyDialog.review}
+        open={replyDialog.open}
+        onOpenChange={(open) => setReplyDialog({ ...replyDialog, open })}
+        onSubmit={submitReply}
+        isLoading={isResponding}
+      />
 
       {/* Report Dialog */}
-      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+      <Dialog
+        open={reportDialog.open}
+        onOpenChange={(open) => setReportDialog({ ...reportDialog, open })}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Report Review</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Flag className="h-5 w-5 text-red-500" />
+              Report Review
+            </DialogTitle>
             <DialogDescription>
-              Explain why this review should be examined by our team.
+              Explain why this review should be examined by our moderation team
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
-            <Label htmlFor="reason">Reason for Reporting</Label>
+            <Label>Reason for Reporting</Label>
             <Textarea
-              id="reason"
-              placeholder="Describe the issue..."
+              placeholder="Describe the issue with this review..."
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
               rows={4}
@@ -636,24 +761,21 @@ export default function ReviewsPage() {
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setReportDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setReportDialog({ open: false, review: null })}>
               Cancel
             </Button>
             <Button
+              variant="destructive"
               onClick={submitReport}
               disabled={!reportReason.trim() || flagMutation.isPending}
-              variant="destructive"
             >
               {flagMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
+                  Submitting...
                 </>
               ) : (
-                "Report"
+                'Submit Report'
               )}
             </Button>
           </DialogFooter>

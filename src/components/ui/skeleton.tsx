@@ -25,9 +25,9 @@ function Skeleton({ className, ...props }: SkeletonProps) {
 /**
  * Skeleton pour une card de prestataire
  */
-function SkeletonCard() {
+function SkeletonCard({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-4">
+    <div className={cn("rounded-lg border bg-card p-4 space-y-4", className)} {...props}>
       <div className="flex items-center space-x-4">
         <Skeleton className="h-12 w-12 rounded-full" />
         <div className="space-y-2 flex-1">

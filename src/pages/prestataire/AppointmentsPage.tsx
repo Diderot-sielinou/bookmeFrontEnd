@@ -1,12 +1,17 @@
 /**
- * AppointmentsPage (Provider)
+ * PrestataireAppointmentsPage - ENHANCED VERSION
  *
- * Appointment management page for providers.
- * Lists, filters, and allows actions on appointments.
+ * Appointment management with:
+ * - Visual calendar overview
+ * - Enhanced filtering
+ * - Beautiful appointment cards
+ * - Quick actions
+ * - Status management
  */
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   format,
   isToday,
@@ -14,8 +19,11 @@ import {
   isPast,
   isFuture,
   parseISO,
-} from "date-fns";
-import { enUS } from "date-fns/locale";
+  startOfWeek,
+  addDays,
+  isSameDay,
+} from 'date-fns';
+import { enUS } from 'date-fns/locale';
 import {
   Calendar,
   Clock,
@@ -27,29 +35,51 @@ import {
   MoreVertical,
   CalendarDays,
   Loader2,
-} from "lucide-react";
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  DollarSign,
+  RefreshCw,
+} from 'lucide-react';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from '@/lib/utils';
+import { formatPrice, formatTime } from '@/lib/utils';
+import { ROUTES } from '@/lib/constants';
+import { AppointmentStatus } from '@/types';
+import type { Appointment } from '@/types';
 import {
+  useMyAppointments,
+  useCancelAppointment,
+  useCompleteAppointment,
+} from '@/hooks/useAppointments';
+import {
+  Button,
+  Input,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Badge,
+  Avatar,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Calendar as CalendarComponent,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -58,78 +88,133 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import {
+  Textarea,
+  Label,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Avatar } from "@/components/ui";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { formatPrice } from "@/lib/utils";
-import { ROUTES } from "@/lib/constants";
-import { AppointmentStatus } from "@/types";
-import type { Appointment } from "@/types";
-
-// Hooks
-import {
-  useMyAppointments,
-  useCancelAppointment,
-  useCompleteAppointment,
-} from "@/hooks/useAppointments";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 
 // ==========================================
-// HELPERS
+// TYPES & HELPERS
 // ==========================================
 
 const getStatusConfig = (status: AppointmentStatus) => {
   switch (status) {
     case AppointmentStatus.CONFIRMED:
       return {
-        label: "Confirmed",
-        variant: "default" as const,
+        label: 'Confirmed',
+        variant: 'default' as const,
         icon: CheckCircle,
+        color: 'text-green-600',
+        bgColor: 'bg-green-100',
       };
     case AppointmentStatus.COMPLETED:
       return {
-        label: "Completed",
-        variant: "secondary" as const,
+        label: 'Completed',
+        variant: 'secondary' as const,
         icon: CheckCircle,
+        color: 'text-gray-600',
+        bgColor: 'bg-gray-100',
       };
     case AppointmentStatus.CANCELLED:
       return {
-        label: "Cancelled",
-        variant: "destructive" as const,
+        label: 'Cancelled',
+        variant: 'destructive' as const,
         icon: XCircle,
+        color: 'text-red-600',
+        bgColor: 'bg-red-100',
       };
     default:
       return {
-        label: "Unknown",
-        variant: "secondary" as const,
+        label: 'Unknown',
+        variant: 'secondary' as const,
         icon: AlertCircle,
+        color: 'text-gray-600',
+        bgColor: 'bg-gray-100',
       };
   }
 };
 
 const getDateLabel = (dateStr: string): string => {
   const date = parseISO(dateStr);
-  if (isToday(date)) return "Today";
-  if (isTomorrow(date)) return "Tomorrow";
-  return format(date, "EEEE, MMMM d", { locale: enUS });
+  if (isToday(date)) return 'Today';
+  if (isTomorrow(date)) return 'Tomorrow';
+  return format(date, 'EEEE, MMMM d', { locale: enUS });
 };
 
-/**
- * Combine date and time (HH:mm) into Date object
- */
 const combineDateAndTime = (dateStr: string, timeStr: string): Date => {
   const date = parseISO(dateStr);
-  const [hours, minutes] = timeStr.split(":").map(Number);
+  const [hours, minutes] = timeStr.split(':').map(Number);
   date.setHours(hours, minutes, 0, 0);
   return date;
 };
+
+// ==========================================
+// MINI CALENDAR COMPONENT
+// ==========================================
+
+interface MiniCalendarProps {
+  appointments: Appointment[];
+  selectedDate: Date | undefined;
+  onDateSelect: (date: Date | undefined) => void;
+}
+
+function MiniCalendar({ appointments, selectedDate, onDateSelect }: MiniCalendarProps) {
+  // Get dates with appointments
+  const appointmentDates = useMemo(() => {
+    return appointments
+      .filter((a) => a.slot?.date)
+      .map((a) => parseISO(a.slot!.date));
+  }, [appointments]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-cyan-500" />
+          Calendar
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <CalendarComponent
+          mode="single"
+          selected={selectedDate}
+          onSelect={onDateSelect}
+          locale={enUS}
+          modifiers={{
+            hasAppointment: appointmentDates,
+          }}
+          modifiersStyles={{
+            hasAppointment: {
+              fontWeight: 'bold',
+              backgroundColor: 'rgb(6, 182, 212, 0.2)',
+              borderRadius: '50%',
+            },
+          }}
+          className="rounded-md border"
+        />
+        {selectedDate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2"
+            onClick={() => onDateSelect(undefined)}
+          >
+            Clear Date Filter
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ==========================================
 // APPOINTMENT CARD COMPONENT
@@ -140,6 +225,7 @@ interface AppointmentCardProps {
   onCancel: (id: string) => void;
   onComplete: (id: string) => void;
   onContact: (appointment: Appointment) => void;
+  onViewDetails: (appointment: Appointment) => void;
   isActioning: boolean;
 }
 
@@ -148,89 +234,81 @@ function AppointmentCard({
   onCancel,
   onComplete,
   onContact,
+  onViewDetails,
   isActioning,
 }: AppointmentCardProps) {
   const statusConfig = getStatusConfig(appointment.status);
   const StatusIcon = statusConfig.icon;
 
-  // Build slot date/time
   const slotDate = appointment.slot
     ? combineDateAndTime(appointment.slot.date, appointment.slot.startTime)
     : new Date();
-  const slotEndDate = appointment.slot
-    ? combineDateAndTime(appointment.slot.date, appointment.slot.endTime)
-    : new Date();
 
   const isUpcoming = isFuture(slotDate) || isToday(slotDate);
-
-  const clientName = `${appointment.client?.firstName || ""} ${
-    appointment.client?.lastName || ""
-  }`.trim();
+  const clientName = `${appointment.client?.firstName || ''} ${appointment.client?.lastName || ''}`.trim();
 
   return (
-    <Card
-      className={`${
-        !isUpcoming && appointment.status !== AppointmentStatus.CANCELLED
-          ? "opacity-75"
-          : ""
-      }`}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          <Avatar
-            src={appointment.client?.avatar}
-            firstName={appointment.client?.firstName}
-            lastName={appointment.client?.lastName}
-            className="h-12 w-12"
-          />
+      <Card className={cn(
+        'overflow-hidden transition-all hover:shadow-md',
+        !isUpcoming && appointment.status !== AppointmentStatus.CANCELLED && 'opacity-75'
+      )}>
+        {/* Color strip */}
+        <div className={cn('h-1', statusConfig.bgColor)} />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="font-semibold">{clientName || "Client"}</h3>
-                <p className="text-sm text-primary font-medium">
-                  {appointment.service?.name || "Service"}
-                </p>
-              </div>
+        <CardContent className="p-4">
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <Avatar
+              src={appointment.client?.avatar}
+              firstName={appointment.client?.firstName}
+              lastName={appointment.client?.lastName}
+              size="lg"
+              className="shrink-0"
+            />
 
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={
-                    statusConfig.variant as
-                      | "default"
-                      | "secondary"
-                      | "destructive"
-                      | "outline"
-                  }
-                >
-                  <StatusIcon className="h-3 w-3 mr-1" />
-                  {statusConfig.label}
-                </Badge>
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-lg">{clientName || 'Client'}</h3>
+                  <p className="text-cyan-600 font-medium">
+                    {appointment.service?.name || 'Service'}
+                  </p>
+                </div>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      disabled={isActioning}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onContact(appointment)}>
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Contact
-                    </DropdownMenuItem>
+                <div className="flex items-center gap-2">
+                  <Badge variant={statusConfig.variant}>
+                    <StatusIcon className="h-3 w-3 mr-1" />
+                    {statusConfig.label}
+                  </Badge>
 
-                    {appointment.status === AppointmentStatus.CONFIRMED &&
-                      isUpcoming && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" disabled={isActioning}>
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onViewDetails(appointment)}>
+                        <User className="h-4 w-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onContact(appointment)}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Contact Client
+                      </DropdownMenuItem>
+
+                      {appointment.status === AppointmentStatus.CONFIRMED && isUpcoming && (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => onComplete(appointment.id)}
-                          >
+                          <DropdownMenuItem onClick={() => onComplete(appointment.id)}>
                             <CheckCircle className="h-4 w-4 mr-2" />
                             Mark Completed
                           </DropdownMenuItem>
@@ -243,41 +321,218 @@ function AppointmentCard({
                           </DropdownMenuItem>
                         </>
                       )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {appointment.slot
-                    ? getDateLabel(appointment.slot.date)
-                    : "Unknown date"}
-                </span>
+              {/* Date & Time */}
+              <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    {appointment.slot ? getDateLabel(appointment.slot.date) : 'Unknown date'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  <span>
+                    {appointment.slot?.startTime || '--:--'} - {appointment.slot?.endTime || '--:--'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 font-medium text-charcoal">
+                  <DollarSign className="h-4 w-4" />
+                  <span>{formatPrice(appointment.priceAtBooking)}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span>
-                  {appointment.slot?.startTime || "--:--"} -{" "}
-                  {appointment.slot?.endTime || "--:--"}
-                </span>
-              </div>
-              <div className="font-medium text-foreground">
-                {formatPrice(appointment.priceAtBooking)}
-              </div>
-            </div>
 
-            {appointment.clientNote && (
-              <p className="mt-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                📝 {appointment.clientNote}
+              {/* Client Note */}
+              {appointment.clientNote && (
+                <div className="mt-3 p-3 rounded-lg bg-gray-50 border-l-4 border-cyan-500">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-charcoal">Note: </span>
+                    {appointment.clientNote}
+                  </p>
+                </div>
+              )}
+
+              {/* Quick Actions */}
+              {appointment.status === AppointmentStatus.CONFIRMED && isUpcoming && (
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onContact(appointment)}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-1" />
+                    Message
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => onComplete(appointment.id)}
+                    disabled={isActioning}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Complete
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+// ==========================================
+// APPOINTMENT DETAILS SHEET
+// ==========================================
+
+interface AppointmentDetailsProps {
+  appointment: Appointment | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function AppointmentDetails({ appointment, open, onOpenChange }: AppointmentDetailsProps) {
+  if (!appointment) return null;
+
+  const client = appointment.client;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Appointment Details</SheetTitle>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-6">
+          {/* Client Info */}
+          <div className="flex items-center gap-4">
+            <Avatar
+              src={client?.avatar}
+              firstName={client?.firstName}
+              lastName={client?.lastName}
+              size="xl"
+            />
+            <div>
+              <h3 className="font-semibold text-lg">
+                {client?.firstName} {client?.lastName}
+              </h3>
+              <p className="text-sm text-muted-foreground">Client</p>
+            </div>
+          </div>
+
+          {/* Contact Info */}
+          <div className="space-y-3">
+            {client?.user?.email && (
+              <a
+                href={`mailto:${client.user.email}`}
+                className="flex items-center gap-3 text-sm hover:text-cyan-600"
+              >
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                {client.user.email}
+              </a>
+            )}
+            {client?.phone && (
+              <a
+                href={`tel:${client.phone}`}
+                className="flex items-center gap-3 text-sm hover:text-cyan-600"
+              >
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                {client.phone}
+              </a>
+            )}
+          </div>
+
+          <hr />
+
+          {/* Appointment Info */}
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Service</p>
+              <p className="font-medium">{appointment.service?.name}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Date & Time</p>
+              <p className="font-medium">
+                {appointment.slot && format(parseISO(appointment.slot.date), 'EEEE, MMMM d, yyyy', { locale: enUS })}
               </p>
+              <p className="text-sm">
+                {appointment.slot?.startTime} - {appointment.slot?.endTime}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Price</p>
+              <p className="font-medium text-lg text-cyan-600">
+                {formatPrice(appointment.priceAtBooking)}
+              </p>
+            </div>
+            {appointment.clientNote && (
+              <div>
+                <p className="text-sm text-muted-foreground">Client Note</p>
+                <p className="text-sm bg-gray-50 p-3 rounded-lg mt-1">
+                  {appointment.clientNote}
+                </p>
+              </div>
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ==========================================
+// STATS SUMMARY COMPONENT
+// ==========================================
+
+interface StatsSummaryProps {
+  appointments: Appointment[];
+}
+
+function StatsSummary({ appointments }: StatsSummaryProps) {
+  const stats = useMemo(() => {
+    const today = new Date();
+    const todayCount = appointments.filter(
+      (a) => a.slot && isToday(parseISO(a.slot.date))
+    ).length;
+    const upcomingCount = appointments.filter(
+      (a) =>
+        a.slot &&
+        (isFuture(parseISO(a.slot.date)) || isToday(parseISO(a.slot.date))) &&
+        a.status === AppointmentStatus.CONFIRMED
+    ).length;
+    const completedCount = appointments.filter(
+      (a) => a.status === AppointmentStatus.COMPLETED
+    ).length;
+
+    return { todayCount, upcomingCount, completedCount };
+  }, [appointments]);
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <Card>
+        <CardContent className="p-4 text-center">
+          <p className="text-3xl font-bold text-cyan-600">{stats.todayCount}</p>
+          <p className="text-sm text-muted-foreground">Today</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4 text-center">
+          <p className="text-3xl font-bold text-teal-600">{stats.upcomingCount}</p>
+          <p className="text-sm text-muted-foreground">Upcoming</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4 text-center">
+          <p className="text-3xl font-bold text-green-600">{stats.completedCount}</p>
+          <p className="text-sm text-muted-foreground">Completed</p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -289,62 +544,65 @@ export default function PrestataireAppointmentsPage() {
   const navigate = useNavigate();
 
   // State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState("upcoming");
+  const [activeTab, setActiveTab] = useState('upcoming');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Dialogs
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
+  const [cancelReason, setCancelReason] = useState('');
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [detailsSheet, setDetailsSheet] = useState<{ open: boolean; appointment: Appointment | null }>({
+    open: false,
+    appointment: null,
+  });
 
-  const { data: appointmentsData, isLoading } = useMyAppointments();
-  const { mutateAsync: cancelAppointment, isPending: isCancelling } =
-    useCancelAppointment();
-  const { mutateAsync: completeAppointment, isPending: isCompleting } =
-    useCompleteAppointment();
+  // Data
+  const { data: appointmentsData, isLoading, refetch } = useMyAppointments();
+  const { mutateAsync: cancelAppointment, isPending: isCancelling } = useCancelAppointment();
+  const { mutateAsync: completeAppointment, isPending: isCompleting } = useCompleteAppointment();
 
   const appointments = appointmentsData?.data || [];
   const isActioning = isCancelling || isCompleting;
 
-  // FILTERING
-  const filteredAppointments = appointments.filter((apt) => {
-    const clientName =
-      `${apt.client?.firstName || ""} ${apt.client?.lastName || ""}`.toLowerCase();
-    const serviceName = (apt.service?.name || "").toLowerCase();
-    const query = searchQuery.toLowerCase();
+  // Filter appointments
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((apt) => {
+      const clientName = `${apt.client?.firstName || ''} ${apt.client?.lastName || ''}`.toLowerCase();
+      const serviceName = (apt.service?.name || '').toLowerCase();
+      const query = searchQuery.toLowerCase();
 
-    if (query && !clientName.includes(query) && !serviceName.includes(query)) {
-      return false;
-    }
-
-    if (statusFilter !== "all" && apt.status !== statusFilter) {
-      return false;
-    }
-
-    if (selectedDate && apt.slot) {
-      const aptDate = parseISO(apt.slot.date);
-      if (
-        format(aptDate, "yyyy-MM-dd") !== format(selectedDate, "yyyy-MM-dd")
-      ) {
+      if (query && !clientName.includes(query) && !serviceName.includes(query)) {
         return false;
       }
-    }
 
-    if (apt.slot) {
-      const slotDate = combineDateAndTime(apt.slot.date, apt.slot.startTime);
-      if (activeTab === "upcoming") {
-        return isFuture(slotDate) || isToday(slotDate);
-      } else if (activeTab === "past") {
-        return isPast(slotDate) && !isToday(slotDate);
+      if (statusFilter !== 'all' && apt.status !== statusFilter) {
+        return false;
       }
-    }
 
-    return true;
-  });
+      if (selectedDate && apt.slot) {
+        const aptDate = parseISO(apt.slot.date);
+        if (!isSameDay(aptDate, selectedDate)) {
+          return false;
+        }
+      }
 
-  // HANDLERS
+      if (apt.slot) {
+        const slotDate = combineDateAndTime(apt.slot.date, apt.slot.startTime);
+        if (activeTab === 'upcoming') {
+          return isFuture(slotDate) || isToday(slotDate);
+        } else if (activeTab === 'past') {
+          return isPast(slotDate) && !isToday(slotDate);
+        }
+      }
+
+      return true;
+    });
+  }, [appointments, searchQuery, statusFilter, selectedDate, activeTab]);
+
+  // Handlers
   const handleCancel = (id: string) => {
     setSelectedAppointmentId(id);
     setCancelDialogOpen(true);
@@ -359,7 +617,7 @@ export default function PrestataireAppointmentsPage() {
         reason: cancelReason || undefined,
       });
       setCancelDialogOpen(false);
-      setCancelReason("");
+      setCancelReason('');
       setSelectedAppointmentId(null);
     } catch (error) {
       // Error handled in hook
@@ -378,9 +636,15 @@ export default function PrestataireAppointmentsPage() {
     navigate(`${ROUTES.PRESTATAIRE_MESSAGES}?appointmentId=${appointment.id}`);
   };
 
-  const todayCount = appointments.filter(
-    (a) => a.slot && isToday(parseISO(a.slot.date))
-  ).length;
+  const handleViewDetails = (appointment: Appointment) => {
+    setDetailsSheet({ open: true, appointment });
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -391,119 +655,120 @@ export default function PrestataireAppointmentsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">My Appointments</h1>
+          <h1 className="text-2xl font-bold">Appointments</h1>
           <p className="text-muted-foreground">
-            {todayCount} appointment{todayCount !== 1 ? 's' : ''} today
+            Manage your client appointments
           </p>
+        </div>
+        <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+          <RefreshCw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Stats Summary */}
+      <StatsSummary appointments={appointments} />
+
+      {/* Main Content */}
+      <div className="grid gap-6 lg:grid-cols-4">
+        {/* Sidebar - Calendar */}
+        <div className="lg:col-span-1">
+          <MiniCalendar
+            appointments={appointments}
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+          />
+        </div>
+
+        {/* Main List */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Filters */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search client or service..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value={AppointmentStatus.CONFIRMED}>Confirmed</SelectItem>
+                    <SelectItem value={AppointmentStatus.COMPLETED}>Completed</SelectItem>
+                    <SelectItem value={AppointmentStatus.CANCELLED}>Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upcoming" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Upcoming
+              </TabsTrigger>
+              <TabsTrigger value="past" className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Past
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value={activeTab} className="mt-4">
+              <AnimatePresence mode="popLayout">
+                {filteredAppointments.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <EmptyState
+                      icon={Calendar}
+                      title="No appointments"
+                      description={
+                        activeTab === 'upcoming'
+                          ? 'You have no upcoming appointments.'
+                          : "You don't have any past appointments yet."
+                      }
+                    />
+                  </motion.div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredAppointments.map((appointment) => (
+                      <AppointmentCard
+                        key={appointment.id}
+                        appointment={appointment}
+                        onCancel={handleCancel}
+                        onComplete={handleComplete}
+                        onContact={handleContact}
+                        onViewDetails={handleViewDetails}
+                        isActioning={isActioning}
+                      />
+                    ))}
+                  </div>
+                )}
+              </AnimatePresence>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search client or service..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value={AppointmentStatus.CONFIRMED}>
-                  Confirmed
-                </SelectItem>
-                <SelectItem value={AppointmentStatus.COMPLETED}>
-                  Completed
-                </SelectItem>
-                <SelectItem value={AppointmentStatus.CANCELLED}>
-                  Cancelled
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-auto">
-                  <CalendarDays className="h-4 w-4 mr-2" />
-                  {selectedDate
-                    ? format(selectedDate, "MMM d, yyyy", { locale: enUS })
-                    : "Choose a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <CalendarComponent
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  locale={enUS}
-                />
-                {selectedDate && (
-                  <div className="p-2 border-t">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setSelectedDate(undefined)}
-                    >
-                      Clear date
-                    </Button>
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="upcoming" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Upcoming
-          </TabsTrigger>
-          <TabsTrigger value="past" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Past
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="mt-4">
-          {filteredAppointments.length === 0 ? (
-            <EmptyState
-              icon={Calendar}
-              title="No appointments"
-              description={
-                activeTab === "upcoming"
-                  ? "You have no upcoming appointments."
-                  : "You don't have any past appointments yet."
-              }
-            />
-          ) : (
-            <div className="space-y-4">
-              {filteredAppointments.map((appointment) => (
-                <AppointmentCard
-                  key={appointment.id}
-                  appointment={appointment}
-                  onCancel={handleCancel}
-                  onComplete={handleComplete}
-                  onContact={handleContact}
-                  isActioning={isActioning}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Details Sheet */}
+      <AppointmentDetails
+        appointment={detailsSheet.appointment}
+        open={detailsSheet.open}
+        onOpenChange={(open) => setDetailsSheet({ ...detailsSheet, open })}
+      />
 
       {/* Cancel Dialog */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
@@ -516,12 +781,10 @@ export default function PrestataireAppointmentsPage() {
           </AlertDialogHeader>
 
           <div className="space-y-2">
-            <Label htmlFor="cancelReason">
-              Cancellation reason (optional)
-            </Label>
+            <Label htmlFor="cancelReason">Cancellation reason (optional)</Label>
             <Textarea
               id="cancelReason"
-              placeholder="Explain why you're cancelling this appointment..."
+              placeholder="Explain why you're cancelling..."
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
             />
@@ -540,7 +803,7 @@ export default function PrestataireAppointmentsPage() {
                   Cancelling...
                 </>
               ) : (
-                "Confirm Cancellation"
+                'Confirm Cancellation'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

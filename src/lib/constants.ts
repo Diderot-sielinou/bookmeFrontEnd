@@ -185,6 +185,18 @@ export const ROUTES = {
   RESET_PASSWORD: '/reset-password',
   VERIFY_EMAIL: '/verify-email',
   
+    // New Strategic Pages
+  HOW_IT_WORKS: '/how-it-works',
+  PRICING: '/pricing',
+  FAQ: '/faq',
+  FOR_PROVIDERS: '/for-providers',
+  TESTIMONIALS: '/testimonials',
+  ABOUT: '/about',
+  CONTACT: '/contact',
+  COMPARE: '/compare',
+  CATEGORIES: '/categories',
+  BLOG: '/blog',
+  
   // Client
   CLIENT_DASHBOARD: '/client/dashboard',
   CLIENT_APPOINTMENTS: '/client/appointments',

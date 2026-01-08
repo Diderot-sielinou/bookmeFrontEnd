@@ -57,6 +57,10 @@ import AdminLogsPage from '@/pages/admin/LogsPage';
 import NotFoundPage from "@/pages/NotFoundPage";
 import { subscribeToMessageNotifications } from "./lib/socket";
 import NotificationsPage from "./pages/prestataire/NotificationsPage";
+import AboutPage from "./pages/public/Aboutpage";
+import ForProvidersPage from "./pages/public/Forproviderspage";
+import PricingPage from "./pages/public/Pricingpage";
+import TestimonialsPage from "./pages/public/Testimonialspage";
 
 // ==========================================
 // APP INITIALIZER
@@ -119,6 +123,11 @@ function App() {
                 element={<PublicPrestataireProfilePage />}
               />
             </Route>
+            <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+            <Route path={ROUTES.FOR_PROVIDERS} element={<ForProvidersPage />} />
+            <Route path={ROUTES.PRICING} element={<PricingPage />} />
+            <Route path={ROUTES.TESTIMONIALS} element={<TestimonialsPage />} />
+
 
             {/* Booking page (public layout without search) */}
             <Route element={<PublicLayout />}>

@@ -1,170 +1,168 @@
 # BookMe Frontend
 
-Application frontend React pour la plateforme de réservation BookMe.
+> React client for the BookMe appointment booking platform.
 
-## 🛠 Stack Technique
+[![Live Demo](https://img.shields.io/badge/Live-Demo-blue)](https://bookme-front-end-9a8n.vercel.app)
 
-- **React 18** avec TypeScript
-- **Vite 5** pour le bundling et le dev server
-- **TailwindCSS** pour le styling
-- **shadcn/ui** pour les composants UI
-- **React Router v6** pour le routing
-- **React Query (TanStack Query)** pour le data fetching
-- **Zustand** pour le state management global
-- **React Hook Form + Zod** pour les formulaires
-- **Socket.io Client** pour les WebSockets
-- **Axios** pour les requêtes HTTP
-- **date-fns** pour la manipulation des dates
-- **Lucide React** pour les icônes
+---
 
-## 📁 Structure du Projet
+## Tech Stack
 
-```
-src/
-├── components/
-│   ├── ui/               # Composants UI shadcn/ui (20+ composants)
-│   ├── shared/           # Composants partagés (EmptyState, LoadingSpinner, etc.)
-│   ├── layout/           # Layouts (PublicLayout, AuthLayout, DashboardLayout)
-│   ├── dashboard/        # Composants dashboard
-│   └── search/           # Composants recherche
-├── pages/
-│   ├── public/           # Pages publiques (4)
-│   ├── auth/             # Pages authentification (5)
-│   ├── client/           # Pages client (6)
-│   ├── prestataire/      # Pages prestataire (8)
-│   └── admin/            # Pages admin (6)
-├── services/             # Services API (11)
-├── hooks/                # Custom hooks (6)
-├── stores/               # Zustand stores (3)
-├── lib/                  # Utilitaires (api, constants, queryClient, socket, utils)
-├── types/                # Types TypeScript
-└── utils/                # Fonctions utilitaires
+| Category | Technology |
+|---|---|
+| Framework | React 18 + TypeScript |
+| Build Tool | Vite 5 |
+| Styling | TailwindCSS + shadcn/ui |
+| Routing | React Router v6 |
+| State Management | Zustand |
+| Data Fetching | TanStack Query (React Query) |
+| Forms | React Hook Form + Zod |
+| HTTP Client | Axios |
+| Real-time | Socket.io Client |
+| Icons | Lucide React |
+| Date Utilities | date-fns |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js v18+
+- npm
+
+### Installation
+```bash
+git clone https://github.com/Diderot-sielinou/bookmeFrontEnd.git
+cd bookmeFrontEnd
+npm install
 ```
 
-## 📄 Pages Implémentées (30 pages)
+### Environment Variables
 
-### Pages Publiques (4)
-- `HomePage` - Page d'accueil avec recherche et catégories
-- `SearchPage` - Recherche de prestataires avec filtres
-- `PrestataireProfilePage` - Profil public d'un prestataire
-- `BookingPage` - Page de réservation
-
-### Pages Authentification (5)
-- `LoginPage` - Connexion
-- `RegisterPage` - Inscription (client/prestataire)
-- `ForgotPasswordPage` - Demande de réinitialisation mot de passe
-- `ResetPasswordPage` - Réinitialisation du mot de passe
-- `VerifyEmailPage` - Vérification de l'email
-
-### Pages Client (6)
-- `DashboardPage` - Tableau de bord client
-- `AppointmentsPage` - Gestion des rendez-vous
-- `MessagesPage` - Messagerie
-- `ReviewsPage` - Avis laissés
-- `ProfilePage` - Profil et paramètres
-- `NotificationsPage` - Centre de notifications
-
-### Pages Prestataire (8)
-- `DashboardPage` - Tableau de bord prestataire avec statistiques
-- `ProfilePage` - Gestion du profil public
-- `ServicesPage` - Gestion des services proposés
-- `SlotsPage` - Gestion des créneaux horaires
-- `AppointmentsPage` - Gestion des rendez-vous clients
-- `ReviewsPage` - Gestion des avis reçus et réponses
-- `MessagesPage` - Messagerie avec les clients
-- `SettingsPage` - Paramètres du compte
-
-### Pages Admin (6)
-- `DashboardPage` - Tableau de bord admin avec KPIs
-- `UsersPage` - Gestion des utilisateurs
-- `ValidationPage` - Validation des prestataires
-- `ModerationPage` - Modération des avis
-- `CategoriesPage` - Gestion des catégories
-- `LogsPage` - Logs d'audit
-
-### Page Erreur (1)
-- `NotFoundPage` - Page 404
-
-## 🔌 Services API (11)
-
-| Service | Description |
-|---------|-------------|
-| `auth.service` | Authentification, tokens, profil |
-| `appointments.service` | CRUD rendez-vous |
-| `prestataires.service` | Recherche, profils prestataires |
-| `services.service` | Gestion des services |
-| `slots.service` | Gestion des créneaux |
-| `reviews.service` | Avis et notes |
-| `messages.service` | Messagerie |
-| `notifications.service` | Notifications |
-| `clients.service` | Profil client |
-| `dashboard.service` | Statistiques |
-| `upload.service` | Upload fichiers |
-
-## 🪝 Custom Hooks (6)
-
-- `useAuth` - Gestion authentification
-- `useAppointments` - Gestion rendez-vous
-- `useSlots` - Gestion créneaux
-- `useReviews` - Gestion avis
-- `useMessages` - Messagerie temps réel
-- `useNotifications` - Notifications temps réel
-
-## 🏪 Stores Zustand (3)
-
-- `authStore` - État d'authentification
-- `notificationStore` - Notifications
-- `uiStore` - État UI (sidebar, modals, theme)
-
-## ⚙️ Configuration
-
-### Variables d'Environnement
-
+Create a `.env` file at the root:
 ```env
-VITE_API_URL=http://localhost:3000
-VITE_WS_URL=ws://localhost:3000
+VITE_API_URL=http://localhost:3001
+VITE_WS_URL=ws://localhost:3001
 VITE_APP_NAME=BookMe
 ```
 
-## 🚀 Installation
-
+### Scripts
 ```bash
-# Installer les dépendances
-npm install
-
-# Lancer en développement
-npm run dev
-
-# Build production
-npm run build
-
-# Preview production
-npm run preview
-
-# Lint
-npm run lint
+npm run dev       # Start development server
+npm run build     # Build for production
+npm run preview   # Preview production build
+npm run lint      # Run ESLint
 ```
 
-## 📊 Statistiques
+---
 
-- **30 pages** complètes et fonctionnelles
-- **11 services** API
-- **6 hooks** personnalisés
-- **20+ composants** UI
-- **25,000+ lignes** de code TypeScript/React
-- **Build production**: ~1.1MB (312KB gzipped)
+## Project Structure
+```
+src/
+├── components/
+│   ├── ui/           # shadcn/ui base components
+│   ├── shared/       # Reusable components (EmptyState, LoadingSpinner…)
+│   ├── layout/       # App layouts (PublicLayout, AuthLayout, DashboardLayout)
+│   ├── dashboard/    # Dashboard-specific components
+│   └── search/       # Search UI components
+├── pages/
+│   ├── public/       # Public-facing pages
+│   ├── auth/         # Authentication pages
+│   ├── client/       # Client dashboard pages
+│   ├── prestataire/  # Provider dashboard pages
+│   └── admin/        # Admin panel pages
+├── services/         # API service layer
+├── hooks/            # Custom React hooks
+├── stores/           # Zustand stores
+├── lib/              # API client, constants, socket, query config
+├── types/            # TypeScript type definitions
+└── utils/            # Helper functions
+```
 
-## 🔗 Intégration Backend
+---
 
-Cette application frontend s'intègre avec l'API BookMe (NestJS):
-- API REST pour toutes les opérations CRUD
-- WebSocket pour la messagerie temps réel
-- JWT pour l'authentification
-- Upload de fichiers multipart
+## Pages
 
-## 📱 Responsive
+### Public
+| Page | Route |
+|---|---|
+| Home | `/` |
+| Search | `/search` |
+| Provider Profile | `/providers/:id` |
+| Booking | `/book/:id` |
 
-L'application est entièrement responsive et optimisée pour:
-- Desktop (1024px+)
-- Tablet (768px - 1023px)
-- Mobile (< 768px)
+### Authentication
+| Page | Route |
+|---|---|
+| Login | `/login` |
+| Register | `/register` |
+| Forgot Password | `/forgot-password` |
+| Reset Password | `/reset-password` |
+| Verify Email | `/verify-email` |
+
+### Client Dashboard
+| Page | Description |
+|---|---|
+| Dashboard | Overview and upcoming appointments |
+| Appointments | Manage bookings |
+| Messages | Chat with providers |
+| Reviews | View submitted reviews |
+| Profile | Account settings |
+| Notifications | Notification center |
+
+### Provider Dashboard
+| Page | Description |
+|---|---|
+| Dashboard | Stats and activity overview |
+| Profile | Manage public profile |
+| Services | Define offered services |
+| Slots | Manage availability |
+| Appointments | View and manage client bookings |
+| Reviews | Read and reply to reviews |
+| Messages | Chat with clients |
+| Settings | Account configuration |
+
+### Admin Panel
+| Page | Description |
+|---|---|
+| Dashboard | Platform KPIs |
+| Users | User management |
+| Validation | Provider approval queue |
+| Moderation | Review moderation |
+| Categories | Category management |
+| Logs | Audit logs |
+
+---
+
+## Key Features
+
+- **JWT Authentication** — Access/refresh token flow with protected routes via `PrivateRoute`
+- **Role-based UI** — Separate dashboards and views for clients, providers, and admins
+- **Real-time Messaging** — Per-appointment chat powered by Socket.io
+- **Live Notifications** — Booking events pushed via WebSocket
+- **Availability Booking** — Dynamic slot selection with conflict prevention
+- **Responsive Design** — Optimized for mobile, tablet, and desktop
+
+---
+
+## API Integration
+
+This frontend connects to the [BookMe API](https://github.com/Diderot-sielinou/bookMeApp-api) (NestJS + PostgreSQL).
+
+- REST for all CRUD operations
+- WebSocket for real-time messaging and notifications
+- JWT Bearer tokens in `Authorization` headers
+- Multipart upload for profile images
+
+---
+
+## Build Output
+
+| Metric | Value |
+|---|---|
+| Bundle size | ~1.1 MB |
+| Gzipped | ~312 KB |
+| Pages | 30 |
+| API services | 11 |
+| Custom hooks | 6 |
